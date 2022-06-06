@@ -6,6 +6,9 @@
         "nvs_flash.h": "c",
         "err.h": "c",
         "sys.h": "c",
-        "esp_log.h": "c"
+        "esp_log.h": "c",
+        "string.h": "c",
+        "bmp280.h": "c",
+        "app_wifi.h": "c"
     }
 }
