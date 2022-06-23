@@ -1,7 +1,9 @@
 
+## Prerequisites
 
+* Visual Studio Code, PlatformIO https://docs.platformio.org/en/latest/integration/ide/vscode.html#ide-vscode
 
-##How to build
+## How to build
 
 Open terminal from PlatformIO (PowerShell)
 
@@ -29,22 +31,20 @@ pio run -t upload | pio device monitor
 
 ### Cert
 
+```
 azure-sdk-for-c\sdk\samples\iot\aziot_esp32\New-TrustedCertHeader.ps1
-
 Get-FileHash -Path "C:\Users\bdomo\ws\weathersense-device2/tmp/BaltimoreCyberTrustRoot.crt" -Algorithm SHA1
 Invoke-WebRequest -Uri https://cacerts.digicert.com/BaltimoreCyberTrustRoot.crt.pem -OutFile ca1.pem
-
 Openssl.exe x509 -inform DER -outform PEM -in tmp/BaltimoreCyberTrustRoot.crt -out ca2.pem
+```
 
-https://techcommunity.microsoft.com/t5/internet-of-things-blog/mosquitto-client-tools-and-azure-iot-hub-the-beginning-of/ba-p/2824717
+See also: https://techcommunity.microsoft.com/t5/internet-of-things-blog/mosquitto-client-tools-and-azure-iot-hub-the-beginning-of/ba-p/2824717
 
 
 ### Error: twin requests causes MQTT disconnect
 
 Solution: 
 
-```C
-#define API_VER "/?api-version=2021-04-12"
-```
+Create the mqtt_username like this: `<iot_hub_name>.azure-devices.net/<device_id>/?api-version=2021-04-12`.
 
-Create the mqtt_username like this: `<iot_hub_name>.azure-devices.net/<device_id>/?api-version=2021-04-12`. Without the api-version, the mqtt connection gets disconnected.
+Without the api-version, the mqtt connection gets disconnected.
