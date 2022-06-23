@@ -9,6 +9,11 @@
         "esp_log.h": "c",
         "string.h": "c",
         "bmp280.h": "c",
-        "app_wifi.h": "c"
+        "app_wifi.h": "c",
+        "*.ipp": "c",
+        "cstring": "c",
+        "freertos.h": "c",
+        "task.h": "c",
+        "iot.h": "c"
     }
 }

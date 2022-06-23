@@ -1,6 +1,11 @@
 
 #include "app_wifi.h"
 
+#define TAG "appwifi"
+
+#include <stdio.h>
+#include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -11,10 +16,62 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
+#include "esp_sntp.h"
+
+#include "app_wifi.h"
+
+static connect_wifi_params_t m_params;
+
 
 #define MAX_RETRY 10
 static int retry_cnt = 0;
-static connect_wifi_params_t m_params;
+
+static bool xTimeInitialized = false;
+static void prvTimeSyncNotificationCallback(struct timeval *pxTimeVal)
+{
+    (void)pxTimeVal;
+    ESP_LOGI(TAG, "Notification of a time synchronization event");
+    xTimeInitialized = true;
+
+    
+    time_t now = 0;
+    struct tm timeinfo;
+    memset((void *)&timeinfo, 0, sizeof(timeinfo));
+    char buf[64];
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    strftime(buf, sizeof(buf), "%H:%M:%S", &timeinfo);
+    ESP_LOGI(TAG, "Sync successfull, time: %s", buf);
+    if(m_params.on_timeset) {
+        m_params.on_timeset();
+    }
+}
+
+static void got_ip_cb(void)
+{
+    // xTaskCreate(connect_aws_mqtt, "connect_aws_mqtt", 15 * configMINIMAL_STACK_SIZE, NULL, 5, NULL);
+    // apptemp_init(publish_reading);
+
+    if (m_params.on_connected)
+    {
+        m_params.on_connected();
+    }
+
+    // readSensors();
+    ESP_LOGI(TAG, "wifi connected...\n");
+
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_set_time_sync_notification_cb(prvTimeSyncNotificationCallback);
+    sntp_setservername(0, "pool.ntp.org");
+    //"time.nist.gov"
+    sntp_init();
+
+    while (!xTimeInitialized)
+    {
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+    
+}
 
 static void handle_wifi_connection(void *arg, esp_event_base_t event_base,
                                    int32_t event_id, void *event_data)
@@ -43,6 +100,7 @@ static void handle_wifi_connection(void *arg, esp_event_base_t event_base,
         {
             m_params.on_connected();
         }
+        got_ip_cb();
     }
 }
 
@@ -64,7 +122,7 @@ void appwifi_connect(connect_wifi_params_t p)
         .sta = {
             .ssid = WIFI_SSID,
             .password = WIFI_PASS,
-            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            .threshold = {.authmode = WIFI_AUTH_WPA2_PSK},
             //.scan_method = WIFI_ALL_CHANNEL_SCAN,
             //.sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
             //.threshold.rssi = -127,

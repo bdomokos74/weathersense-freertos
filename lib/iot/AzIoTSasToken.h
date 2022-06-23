@@ -5,8 +5,8 @@
 #define AZIOTSASTOKEN_H
 
 
-#include <az_iot_hub_client.h>
-#include <az_span.h>
+#include <az_core.h>
+#include <az_iot.h>
 
 class AzIoTSasToken
 {
