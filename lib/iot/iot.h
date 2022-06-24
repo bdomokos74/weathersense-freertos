@@ -10,7 +10,6 @@
 void initializeIoTHubClient();
 int initializeMqttClient();
 int sendTelemetry();
-void sendTwinProp();
 bool requestTwin();
 
 

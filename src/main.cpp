@@ -10,6 +10,8 @@
 #include "app_wifi.h"
 #include "telemetry.h"
 
+#include "props.h"
+
 extern "C" void app_main(void);
 
 #define SDA_GPIO 21
@@ -20,7 +22,6 @@ extern "C" void app_main(void);
 #define OW_SENSOR_PIN 19
 #define MAX_SENSORS 8
 #define BME_ADDR 0x77
-
 
 // static ds18x20_addr_t addrs[MAX_SENSORS];
 static bmp280_t temp_sensor;
@@ -48,7 +49,11 @@ static void telemetryTask(void *arg)
     while (1)
     {
         sendTelemetry();
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        Props props;
+        Props::load(props);
+        int delayMs = props.getMeasureIntervalMs();
+        ESP_LOGI(TAG, "delay: %d", delayMs);
+        vTaskDelay(delayMs / portTICK_PERIOD_MS);
     }
 }
 
@@ -71,6 +76,7 @@ static void on_failed() {
 
 void app_main()
 {
+    Props::init();
     connect_wifi_params_t params = {
         .on_connected = on_connected,
         .on_failed = on_failed,

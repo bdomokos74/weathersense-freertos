@@ -136,7 +136,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
       logger.info("MQTT event MQTT_EVENT_DATA");
       logger.printBuf("topic: ", event->topic, event->topic_len);
       
-      if(handleTwinResp(event)) {    
+      if(handleTwinResp(event)) {
         logger.info("twin handled");
       } else if(handleC2d(event) ) {
         logger.info("c2d handled");

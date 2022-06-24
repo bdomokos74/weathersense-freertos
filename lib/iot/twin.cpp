@@ -9,8 +9,6 @@ extern az_iot_hub_client client;
 extern esp_mqtt_client_handle_t mqtt_client;
 extern bool connected;
 
-extern Props *props;
-
 static char twin_req_topic[128];
 static char twin_patch_topic[100];
 
@@ -22,13 +20,17 @@ az_span eventDataSpan;
 #define INCOMING_DATA_BUFFER_SIZE 1024
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
 
-az_span batchSizeToken = AZ_SPAN_LITERAL_FROM_STR("measureBatchSize");
+static char desiredVersion[20];
+
+az_span measureIntervalMsToken = AZ_SPAN_LITERAL_FROM_STR("measureIntervalMs");
+az_span measureBatchSizeToken = AZ_SPAN_LITERAL_FROM_STR("measureBatchSize");
 az_span sleepTimeSecToken = AZ_SPAN_LITERAL_FROM_STR("sleepTimeSec");
 az_span doSleepToken = AZ_SPAN_LITERAL_FROM_STR("doSleep");
-az_span versionToken = AZ_SPAN_LITERAL_FROM_STR("fwVersion");
-az_span revisionToken = AZ_SPAN_LITERAL_FROM_STR("gitRevision");
+az_span fwVersionToken = AZ_SPAN_LITERAL_FROM_STR("fwVersion");
+az_span gitRevisionToken = AZ_SPAN_LITERAL_FROM_STR("gitRevision");
 
 void printTwinResponseDetails(az_iot_hub_client_twin_response response);
+void sendTwinProp(Props *props);
 
 int twinGetReqId = 1;
 // https://docs.microsoft.com/en-us/azure/iot-hub/troubleshoot-error-codes#404104-deviceconnectionclosedremotely
@@ -78,12 +80,12 @@ bool requestTwin()
     }
 }
 
-void parseTwinResp(az_span twinResp)
+Props* parseTwinResp(az_span twinResp)
 {
     az_result result;
-    char desiredVersion[20];
     desiredVersion[0] = 0;
     int measureBatchSize;
+    int measureIntervalMs;
     int sleepTimeSec;
     int doSleep;
 
@@ -104,18 +106,22 @@ void parseTwinResp(az_span twinResp)
         az_span tokenSpan = AZ_SPAN_FROM_BUFFER(tokenBuf);
         az_span reminder = az_json_token_copy_into_span(&jr.token, tokenSpan);
         az_span_copy_u8(reminder, 0);
-        logger.println(tokenBuf);
-        if (az_json_token_is_text_equal(&jr.token, versionToken))
+        if (az_json_token_is_text_equal(&jr.token, fwVersionToken))
         {
             result = az_json_reader_next_token(&jr);
             int versionLen;
             result = az_json_token_get_string(&jr.token, desiredVersion, sizeof(desiredVersion), &versionLen);
             desiredVersion[versionLen] = 0;
         }
-        else if (az_json_token_is_text_equal(&jr.token, batchSizeToken))
+        else if (az_json_token_is_text_equal(&jr.token, measureBatchSizeToken))
         {
             result = az_json_reader_next_token(&jr);
             result = az_json_token_get_int32(&jr.token, &measureBatchSize);
+        }
+        else if (az_json_token_is_text_equal(&jr.token, measureIntervalMsToken))
+        {
+            result = az_json_reader_next_token(&jr);
+            result = az_json_token_get_int32(&jr.token, &measureIntervalMs);
         }
         else if (az_json_token_is_text_equal(&jr.token, doSleepToken))
         {
@@ -130,12 +136,10 @@ void parseTwinResp(az_span twinResp)
 
         result = az_json_reader_next_token(&jr);
     }
-    logger.println("version:", desiredVersion);
-    logger.println("measureBatchSize:", measureBatchSize);
-    logger.println("doSleep:", doSleep);
-    logger.println("sleepTimeSec:", sleepTimeSec);
-
-    logger.println("parse twin resp end");
+    
+    Props *desired = new Props(desiredVersion, doSleep, sleepTimeSec, measureIntervalMs, measureBatchSize, -1);
+    logger.println("====parse twin resp end====");
+    return desired;
 }
 
 bool handleTwinResp(esp_mqtt_event_handle_t event)
@@ -154,14 +158,29 @@ bool handleTwinResp(esp_mqtt_event_handle_t event)
     {
         logger.printBuf("data: ", event->data, event->data_len);
 
-        parseTwinResp(az_span_create((uint8_t *)event->data, event->data_len));
-
+        Props *resp = parseTwinResp(az_span_create((uint8_t *)event->data, event->data_len));
+        resp->debug("twinresp");
+        delete resp;
         return true;
     } else if( response.response_type == AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_DESIRED_PROPERTIES) {
+        logger.printBuf("DESIRED, req data: ", event->data, event->data_len);
+        Props *desired = parseTwinResp(az_span_create((uint8_t *)event->data, event->data_len));
+        
+        Props curr;
+        Props::load(curr);
+        curr.debug("curr");
 
-        logger.printBuf("DESIRED: ", event->data, event->data_len);
+        //desired->debug("desired");
+        
+        Props::merge(*desired);
+        
+        Props::load(curr);
+        curr.debug("new");
+        delete desired;
+
+        sendTwinProp(&curr);
+        //logger.printBuf("DESIRED: ", event->data, event->data_len);
         return true;
-
     } else if( response.response_type == AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES) {
         //twin: resptype=3 reqid=ptch_tmp st=204 ver=11958
         //2022/6/5 23:11:58 c2d topic: $iothub/twin/res/204/?$rid=ptch_tmp&$version=11958
@@ -189,7 +208,7 @@ void printTwinResponseDetails(az_iot_hub_client_twin_response response)
     logger.println(printBuf);
 }
 
-void sendTwinProp()
+void sendTwinProp(Props *props)
 {
     logger.println("sending twin patch");
 
@@ -201,12 +220,18 @@ void sendTwinProp()
     result = az_json_writer_init(&jw, json_buffer, NULL);
     result = az_json_writer_append_begin_object(&jw);    
 
-    result = az_json_writer_append_property_name(&jw, versionToken);
+    result = az_json_writer_append_property_name(&jw, fwVersionToken);
     result = az_json_writer_append_string(&jw, az_span_create_from_str(props->getFirmwareVersion()));
-    result = az_json_writer_append_property_name(&jw, revisionToken);
+    result = az_json_writer_append_property_name(&jw, gitRevisionToken);
     result = az_json_writer_append_string(&jw, az_span_create_from_str(props->getGitRevision()));
     result = az_json_writer_append_property_name(&jw, doSleepToken);
     result = az_json_writer_append_int32(&jw, props->getDoSleep());
+    result = az_json_writer_append_property_name(&jw, measureBatchSizeToken);
+    result = az_json_writer_append_int32(&jw, props->getMeasureBatchSize());
+    result = az_json_writer_append_property_name(&jw, measureIntervalMsToken);
+    result = az_json_writer_append_int32(&jw, props->getMeasureIntervalMs());
+    result = az_json_writer_append_property_name(&jw, sleepTimeSecToken);
+    result = az_json_writer_append_int32(&jw, props->getSleepTimeSec());
 
     result = az_json_writer_append_end_object(&jw);
     az_span twin_payload = az_json_writer_get_bytes_used_in_destination(&jw);
