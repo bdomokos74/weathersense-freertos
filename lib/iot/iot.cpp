@@ -9,7 +9,9 @@
 #include <mqtt_client.h>
 #include "ca.h"
 #include "telemetry.h"
+
 #include "esp_log.h"
+
 #define TAG "IOT"
 
 bool handleTwinResp(esp_mqtt_event_handle_t event) ;
@@ -215,7 +217,7 @@ int initializeMqttClient()
   //mqtt_config.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
 
   #ifdef IOT_CONFIG_USE_X509_CERT
-    logger.info("MQTT client using X509 Certificate authentication");
+    ESP_LOGI(TAG, "MQTT client using X509 Certificate authentication");
     mqtt_config.client_cert_pem = IOT_CONFIG_DEVICE_CERT;
     mqtt_config.client_key_pem = IOT_CONFIG_DEVICE_CERT_PRIVATE_KEY;
   #else // Using SAS key

@@ -4,6 +4,8 @@
 #ifndef _SLLOGGER_H
 #define _SLLOGGER_H
 
+#include <az_core.h>
+#include "esp_log.h"
 
 class Logger
 {
@@ -11,16 +13,8 @@ private:
   void writeTime(char *buf);
 public:
   Logger();
-  void info(const char *message);
-  void info(const char *message, int i);
-  void error(const char *message);
-  void error(const char *message, int i);
-
+  
   void printBuf(const char *tag, const char *header, const char *data, int len);
-
-  void println(const char *str1, const char *str2);
-  void println(const char *str1, int i);
-  void println(const char *str);
 };
 
 extern Logger logger;
