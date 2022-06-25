@@ -18,6 +18,9 @@ git co 1.3.1
 
 $env:WIFI_SSID='\"sid\"'
 $env:WIFI_PASS='\"pass\"'
+$env:IOT_CONFIG_IOTHUB_FQDN='\"<iothubname>.azure-devices.net\"'
+$env:IOT_CONFIG_DEVICE_ID='\"<deviceid>\"'
+$env:IOT_CONFIG_DEVICE_KEY='\"<devicekey>\"'
 
 pio run
 ```

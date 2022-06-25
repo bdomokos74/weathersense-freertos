@@ -31,12 +31,6 @@ static int sensor_count = 0;
 
 BME280Sensor *bme280Sensor;
 
-
-
-#define IOT_CONFIG_IOTHUB_FQDN "weathersensehub.azure-devices.net"
-#define IOT_CONFIG_DEVICE_ID (char*)"DOIT2"
-#define IOT_CONFIG_DEVICE_KEY (char*)"imIMZOyVc1PRqVvrSg587PLwIWkJ23AX3zVxjOVg5m8="
-
 char *iothubHost = IOT_CONFIG_IOTHUB_FQDN;
 char *mqtt_broker_uri = "mqtts://" IOT_CONFIG_IOTHUB_FQDN;
 char *iotDeviceId = IOT_CONFIG_DEVICE_ID;
