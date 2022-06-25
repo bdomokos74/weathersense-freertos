@@ -5,6 +5,9 @@
 #include <mqtt_client.h>
 #include "props.h"
 
+#include "esp_log.h"
+#define TAG "TWIN"
+
 extern az_iot_hub_client client;
 extern esp_mqtt_client_handle_t mqtt_client;
 extern bool connected;
@@ -38,12 +41,12 @@ bool requestTwin()
 {
     if (!connected || !twinGetReqId)
     {
-        logger.info("not connected, skip twin get");
+        ESP_LOGI(TAG, "not connected, skip twin get");
         return false;
     }
     // az_span telemetry = AZ_SPAN_FROM_BUFFER(telemetry_payload);
 
-    logger.info("Requesting twin ...xx");
+    ESP_LOGI(TAG, "Requesting twin ...xx");
 
     az_result result;
     char reqIdBuf[16];
@@ -55,11 +58,11 @@ bool requestTwin()
     if (az_result_failed(az_iot_hub_client_twin_document_get_publish_topic(
             &client, reqIdSpan, twin_req_topic, sizeof(twin_req_topic), &s)))
     {
-        logger.error("Failed az_iot_hub_client_properties_document_get_publish_topic");
+        ESP_LOGE(TAG, "Failed az_iot_hub_client_properties_document_get_publish_topic");
         return false;
     }
     twin_req_topic[s] = 0;
-    logger.println("twintopic=", twin_req_topic);
+    ESP_LOGI(TAG, "twintopic: %s", twin_req_topic);
     
     int ret = esp_mqtt_client_publish(
         mqtt_client,
@@ -70,12 +73,12 @@ bool requestTwin()
         false);
     if (ret == -1)
     {
-        logger.error("Failed publishing twin req");
+        ESP_LOGE(TAG, "Failed publishing twin req");
         return false;
     }
     else
     {
-        logger.info("Twin req published successfully");
+        ESP_LOGI(TAG, "Twin req published successfully");
         return true;
     }
 }
@@ -95,7 +98,7 @@ Props* parseTwinResp(az_span twinResp)
     result = az_json_reader_next_token(&jr);
     if (jr.token.kind != AZ_JSON_TOKEN_BEGIN_OBJECT)
     {
-        logger.println("invalid twin resp");
+        ESP_LOGE(TAG, "invalid twin resp");
     }
 
     result = az_json_reader_next_token(&jr);
@@ -138,7 +141,7 @@ Props* parseTwinResp(az_span twinResp)
     }
     
     Props *desired = new Props(desiredVersion, doSleep, sleepTimeSec, measureIntervalMs, measureBatchSize, -1);
-    logger.println("====parse twin resp end====");
+    ESP_LOGI(TAG, "====parse twin resp end====");
     return desired;
 }
 
@@ -148,7 +151,7 @@ bool handleTwinResp(esp_mqtt_event_handle_t event)
     az_iot_hub_client_twin_response response;
     if (az_result_failed(az_iot_hub_client_twin_parse_received_topic(&client, az_span_create((uint8_t *)event->topic, event->topic_len), &response)))
     {
-        logger.info("not twin");
+        ESP_LOGI(TAG, "not twin");
         return false;
     }
 
@@ -156,14 +159,14 @@ bool handleTwinResp(esp_mqtt_event_handle_t event)
 
     if (response.response_type == AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_GET)
     {
-        logger.printBuf("data: ", event->data, event->data_len);
+        logger.printBuf(TAG, "data: ", event->data, event->data_len);
 
         Props *resp = parseTwinResp(az_span_create((uint8_t *)event->data, event->data_len));
         resp->debug("twinresp");
         delete resp;
         return true;
     } else if( response.response_type == AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_DESIRED_PROPERTIES) {
-        logger.printBuf("DESIRED, req data: ", event->data, event->data_len);
+        logger.printBuf(TAG, "DESIRED, req data: ", event->data, event->data_len);
         Props *desired = parseTwinResp(az_span_create((uint8_t *)event->data, event->data_len));
         
         Props curr;
@@ -184,7 +187,7 @@ bool handleTwinResp(esp_mqtt_event_handle_t event)
     } else if( response.response_type == AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES) {
         //twin: resptype=3 reqid=ptch_tmp st=204 ver=11958
         //2022/6/5 23:11:58 c2d topic: $iothub/twin/res/204/?$rid=ptch_tmp&$version=11958
-        logger.printBuf("REPORTED: ", event->data, event->data_len);
+        logger.printBuf(TAG, "REPORTED: ", event->data, event->data_len);
         return true;
     }
 
@@ -205,12 +208,12 @@ void printTwinResponseDetails(az_iot_hub_client_twin_response response)
     rem = az_span_copy(rem, AZ_SPAN_LITERAL_FROM_STR(" ver="));
     rem = az_span_copy(rem, response.version);
     az_span_copy_u8(rem, 0);
-    logger.println(printBuf);
+    ESP_LOGI(TAG, "%s", printBuf);
 }
 
 void sendTwinProp(Props *props)
 {
-    logger.println("sending twin patch");
+    ESP_LOGI(TAG, "sending twin patch");
 
     char buf[1024];
     az_result result;
@@ -236,7 +239,7 @@ void sendTwinProp(Props *props)
     result = az_json_writer_append_end_object(&jw);
     az_span twin_payload = az_json_writer_get_bytes_used_in_destination(&jw);
 
-    logger.printBuf("patch payload=", (char*)az_span_ptr(twin_payload), az_span_size(twin_payload));
+    logger.printBuf(TAG, "patch payload=", (char*)az_span_ptr(twin_payload), az_span_size(twin_payload));
 
     //"$iothub/twin/PATCH/properties/reported/?$rid=patch_temp";
 
@@ -248,11 +251,11 @@ void sendTwinProp(Props *props)
     if (az_result_failed(az_iot_hub_client_twin_patch_get_publish_topic(
             &client, AZ_SPAN_LITERAL_FROM_STR("ptch_tmp"), twin_patch_topic, sizeof(twin_patch_topic), &topic_len)))
     {
-        logger.error("Failed az_iot_hub_client_telemetry_get_publish_topic");
+        ESP_LOGE(TAG, "Failed az_iot_hub_client_telemetry_get_publish_topic");
         return;
     }
 
-    logger.printBuf("twin patch topic: ", twin_patch_topic, topic_len);
+    logger.printBuf(TAG, "twin patch topic: ", twin_patch_topic, topic_len);
 
     if (esp_mqtt_client_publish(
             mqtt_client,
@@ -262,10 +265,10 @@ void sendTwinProp(Props *props)
             0,
             DO_NOT_RETAIN_MSG) == -1)
     {
-        logger.error("Failed publishing");
+        ESP_LOGE(TAG, "Failed publishing");
     }
     else
     {
-        logger.info("Message published successfully");
+        ESP_LOGI(TAG, "Message published successfully");
     }
 }

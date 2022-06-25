@@ -9,6 +9,8 @@
 #include <mqtt_client.h>
 #include "ca.h"
 #include "telemetry.h"
+#include "esp_log.h"
+#define TAG "IOT"
 
 bool handleTwinResp(esp_mqtt_event_handle_t event) ;
 bool handleC2d(esp_mqtt_event_handle_t event);
@@ -39,7 +41,6 @@ static char mqtt_username[128];
 static char mqtt_password[200];
 static uint8_t sas_signature_buffer[256];
 static char telemetry_topic[128];
-static uint8_t telemetry_payload[100];
 
 bool connected = false;
 
@@ -68,56 +69,53 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
     int i, r;
      
     case MQTT_EVENT_ERROR:
-      logger.info("MQTT event MQTT_EVENT_ERROR");
-    
-      az_span_copy_u8(sp, 0);
-      logger.info(buf);
+      ESP_LOGI(TAG, "MQTT event MQTT_EVENT_ERROR");
+      // TODO add details
       break;
     case MQTT_EVENT_CONNECTED:
-      logger.info("MQTT event MQTT_EVENT_CONNECTED");
+      ESP_LOGI(TAG, "MQTT event MQTT_EVENT_CONNECTED");
       
-
       r = esp_mqtt_client_subscribe(mqtt_client, AZ_IOT_HUB_CLIENT_C2D_SUBSCRIBE_TOPIC, 1);
       if (r == -1)
       {
-        logger.error("Could not subscribe for cloud-to-device messages.");
+        ESP_LOGE(TAG,"Could not subscribe for cloud-to-device messages.");
       }
       else
       {
-        logger.info("Subscribed for cloud-to-device messages; message id:", r);
+        ESP_LOGI(TAG, "Subscribed for cloud-to-device messages; message_id: %d", r);
         cldMsgSubsId = r;
       }
 
       r = esp_mqtt_client_subscribe(mqtt_client, AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_SUBSCRIBE_TOPIC, 1);
       if (r == -1)
       {
-        logger.error("Could not subscribe for twin resp messages.");
+        ESP_LOGE(TAG,"Could not subscribe for twin resp messages.");
       }
       else
       {
-        logger.info("Subscribed for twin resp messages; message id:", r);
+        ESP_LOGI(TAG,"Subscribed for twin resp messages; message_id: %d", r);
         twingetSubsId = r;
       }
 
       r = esp_mqtt_client_subscribe(mqtt_client, AZ_IOT_HUB_CLIENT_PROPERTIES_WRITABLE_UPDATES_SUBSCRIBE_TOPIC, 1);
       if (r == -1)
       {
-        logger.error("Could not subscribe for twin prop messages.");
+        ESP_LOGE(TAG, "Could not subscribe for twin prop messages.");
       }
       else
       {
-        logger.info("Subscribed for twin prop messages; message id:", r);
+        ESP_LOGI(TAG, "Subscribed for twin prop messages; message_id: %d", r);
         twinPropSubsId = r;
       }
 
       connected = true;
       break;
     case MQTT_EVENT_DISCONNECTED:
-      logger.info("MQTT event MQTT_EVENT_DISCONNECTED");
+      ESP_LOGI(TAG, "MQTT event MQTT_EVENT_DISCONNECTED");
       connected = false;
       break;
     case MQTT_EVENT_SUBSCRIBED:
-      logger.info("MQTT event MQTT_EVENT_SUBSCRIBED msgid=", event->msg_id);
+      ESP_LOGI(TAG, "MQTT event MQTT_EVENT_SUBSCRIBED msgid=%d", event->msg_id);
       if(event->msg_id==cldMsgSubsId) {
         cldMsgSubOk = true;
       } else if(event->msg_id==twingetSubsId) {
@@ -127,29 +125,29 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
       }
       break;
     case MQTT_EVENT_UNSUBSCRIBED:
-      logger.info("MQTT event MQTT_EVENT_UNSUBSCRIBED");
+      ESP_LOGI(TAG, "MQTT event MQTT_EVENT_UNSUBSCRIBED");
       break;
     case MQTT_EVENT_PUBLISHED:
-      logger.info("MQTT event MQTT_EVENT_PUBLISHED");
+      ESP_LOGI(TAG, "MQTT event MQTT_EVENT_PUBLISHED");
       break;
     case MQTT_EVENT_DATA:
-      logger.info("MQTT event MQTT_EVENT_DATA");
-      logger.printBuf("topic: ", event->topic, event->topic_len);
+      ESP_LOGI(TAG, "MQTT event MQTT_EVENT_DATA");
+      logger.printBuf(TAG, "topic: ", event->topic, event->topic_len);
       
       if(handleTwinResp(event)) {
-        logger.info("twin handled");
+        ESP_LOGI(TAG, "twin handled");
       } else if(handleC2d(event) ) {
-        logger.info("c2d handled");
+        ESP_LOGI(TAG, "c2d handled");
       } else {
-        logger.info("msg not handled");
+        ESP_LOGI(TAG, "msg not handled");
       }
 
       break;
     case MQTT_EVENT_BEFORE_CONNECT:
-      logger.info("MQTT event MQTT_EVENT_BEFORE_CONNECT");
+      ESP_LOGI(TAG, "MQTT event MQTT_EVENT_BEFORE_CONNECT");
       break;
     default:
-      logger.error("MQTT event UNKNOWN");
+      ESP_LOGI(TAG, "MQTT event UNKNOWN");
       break;
   }
 
@@ -167,7 +165,7 @@ void initializeIoTHubClient()
           az_span_create((uint8_t*)iotDeviceId, strlen(iotDeviceId)),
           &options)))
   {
-    logger.error("Failed initializing Azure IoT Hub client");
+    ESP_LOGE(TAG, "Failed initializing Azure IoT Hub client");
     return;
   }
 
@@ -175,7 +173,7 @@ void initializeIoTHubClient()
   if (az_result_failed(az_iot_hub_client_get_client_id(
           &client, mqtt_client_id, sizeof(mqtt_client_id) - 1, &client_id_length)))
   {
-    logger.error("Failed getting client id");
+    ESP_LOGE(TAG, "Failed getting client id");
     return;
   }
 
@@ -193,9 +191,9 @@ void initializeIoTHubClient()
   //   return;
   // }
 
-  logger.println("Client ID: ", mqtt_client_id);
-  logger.println("Username: ", mqtt_username);
-  logger.println("broker uri: ", mqtt_broker_uri);
+  ESP_LOGI(TAG, "Client ID: %s", mqtt_client_id);
+  ESP_LOGI(TAG, "Username: %s", mqtt_username);
+  ESP_LOGI(TAG, "Broker URI: %s", mqtt_broker_uri);
 }
 
 int initializeMqttClient()
@@ -203,7 +201,7 @@ int initializeMqttClient()
   #ifndef IOT_CONFIG_USE_X509_CERT
   if (sasToken.Generate(SAS_TOKEN_DURATION_IN_MINUTES) != 0)
   {
-    logger.error("Failed generating SAS token");
+    ESP_LOGE(TAG, "Failed generating SAS token");
     return 1;
   }
   #endif
@@ -235,7 +233,7 @@ int initializeMqttClient()
 
   if (mqtt_client == NULL)
   {
-    logger.error("Failed creating mqtt client");
+    ESP_LOGE(TAG, "Failed creating mqtt client");
     return 1;
   }
 
@@ -243,25 +241,25 @@ int initializeMqttClient()
 
   if (start_result != ESP_OK)
   {
-    logger.error("Could not start mqtt client; error code");
+    ESP_LOGE(TAG, "Could not start mqtt client; error code");
     return 1;
   }
   else
   {
-    logger.info("MQTT client started");
+    ESP_LOGI(TAG, "MQTT client started");
     return 0;
   }
 }
 
-int sendTelemetry()
+int sendTelemetry(az_span telemetry)
 {
-  logger.info("Sending telemetry ...");
+  ESP_LOGI(TAG, "Sending telemetry ...");
 
   if(!connected||!cldMsgSubOk) {
-    logger.println("not connected, skip telemetry");
+    ESP_LOGI(TAG, "not connected, skip telemetry");
     return 0;
   }
-  az_span telemetry = AZ_SPAN_FROM_BUFFER(telemetry_payload);
+
 
   // The topic could be obtained just once during setup,
   // however if properties are used the topic need to be generated again to reflect the
@@ -270,14 +268,11 @@ int sendTelemetry()
   if (az_result_failed(az_iot_hub_client_telemetry_get_publish_topic(
           &client, NULL, telemetry_topic, sizeof(telemetry_topic), &topic_len)))
   {
-    logger.error("Failed az_iot_hub_client_telemetry_get_publish_topic");
+    ESP_LOGE(TAG, "Failed az_iot_hub_client_telemetry_get_publish_topic");
     return 0;
   }
   telemetry_topic[topic_len] = 0;
-  logger.println("topic: ", telemetry_topic);
-
-
-  getTelemetryPayload(telemetry, &telemetry);
+  ESP_LOGI(TAG, "topic: %s", telemetry_topic);
 
   int ret = esp_mqtt_client_publish(
           mqtt_client,
@@ -288,12 +283,12 @@ int sendTelemetry()
           DO_NOT_RETAIN_MSG);
   if (ret == -1)
   {
-    logger.error("Failed publishing");
+    ESP_LOGE(TAG, "Failed publishing");
     return 0;
   }
   else
   {
-    logger.info("Message published successfully: ", ret);
+    ESP_LOGI(TAG, "Message published successfully: %d", ret);
     return 1;
   }
 }

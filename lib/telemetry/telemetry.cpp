@@ -1,4 +1,5 @@
 #include "telemetry.h"
+
 #include "esp_log.h"
 #include "bmp280.h"
 #include <time.h>
@@ -15,32 +16,10 @@ static float humidity;
 
 static uint32_t telemetry_send_count = 0;
 
-void telemetryInit(int sda, int scl) {
-    ESP_LOGI(TAG, "telemetry init");
-    i2cdev_init();
-
-    memset(&temp_sensor, 0, sizeof(bmp280_t));
-    temp_sensor.i2c_dev.timeout_ticks = 0xffff / portTICK_PERIOD_MS;
-
-    bmp280_params_t params;
-    bmp280_init_default_params(&params);
-    // BMP280_I2C_ADDRESS_0
-    bmp280_init_desc(&temp_sensor, 0x77, 0,  (gpio_num_t)sda,  (gpio_num_t)scl);
-    bmp280_init(&temp_sensor, &params);
-    ESP_LOGI(TAG, "telemetry init done");
-}
-
-void getTelemetryPayload(az_span payload, az_span* out_payload)
+void getTelemetryPayload(az_span payload, az_span* out_payload, float temperature, float pressure, float humidity)
 {
   char tempBuf[20];
-  
-  
-  if (bmp280_read_float(&temp_sensor, &temperature, &pressure, &humidity) == ESP_OK)
-  {
-      ESP_LOGI(TAG, "%.2f Pa, %.2f C, %.2f %%\n", pressure, temperature, humidity);
-  } else {
-      ESP_LOGE(TAG, "sensor read failed");
-  }
+
   sprintf(tempBuf, "%.2f", temperature);
   az_span tempSpan = az_span_create_from_str(tempBuf);
 

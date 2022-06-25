@@ -3,7 +3,7 @@
 
 #include "string.h"
 
-#define TAG "props"
+#define TAG "PROPS"
 
 #include <stdio.h>
 #include <string.h>
@@ -13,9 +13,9 @@
 SemaphoreHandle_t Props::lock;
 
 RTC_DATA_ATTR int prop_doSleep = 0;
-RTC_DATA_ATTR int prop_sleepTimeSec = 0;
+RTC_DATA_ATTR int prop_sleepTimeSec = 30;
 RTC_DATA_ATTR int prop_measureIntervalMs = 30000;
-RTC_DATA_ATTR int prop_mesaureBatchSize = 0;
+RTC_DATA_ATTR int prop_mesaureBatchSize = 30;
 RTC_DATA_ATTR int prop_ledPin = 0;
 RTC_DATA_ATTR char *prop_firmwareVersion = WS_VERSION;
 RTC_DATA_ATTR char *prop_gitRevision = GIT_REV;

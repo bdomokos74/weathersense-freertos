@@ -9,6 +9,7 @@
 #include "iot.h"
 #include "app_wifi.h"
 #include "telemetry.h"
+#include "bme280sensor.h"
 
 #include "props.h"
 
@@ -17,21 +18,20 @@ extern "C" void app_main(void);
 #define SDA_GPIO 21
 #define SCL_GPIO 22
 
-#define TAG "app"
+#define TAG "MAIN"
 
 #define OW_SENSOR_PIN 19
 #define MAX_SENSORS 8
 #define BME_ADDR 0x77
 
 // static ds18x20_addr_t addrs[MAX_SENSORS];
-static bmp280_t temp_sensor;
+//static bmp280_t temp_sensor;
 static int sensor_count = 0;
 //static float temps[MAX_SENSORS];
 
+BME280Sensor *bme280Sensor;
 
-float temperature;
-float pressure;
-float humidity;
+
 
 #define IOT_CONFIG_IOTHUB_FQDN "weathersensehub.azure-devices.net"
 #define IOT_CONFIG_DEVICE_ID (char*)"DOIT2"
@@ -42,13 +42,20 @@ char *mqtt_broker_uri = "mqtts://" IOT_CONFIG_IOTHUB_FQDN;
 char *iotDeviceId = IOT_CONFIG_DEVICE_ID;
 char *iotDeviceKey = IOT_CONFIG_DEVICE_KEY;
 
-
 static void telemetryTask(void *arg)
 {
-    telemetryInit(SDA_GPIO, SCL_GPIO);
+    bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
+    static uint8_t telemetry_payload[100];
+    float temperature;
+    float pressure;
+    float humidity;
     while (1)
     {
-        sendTelemetry();
+        bme280Sensor->readMeasurement(temperature, pressure, humidity);
+        az_span telemetry = AZ_SPAN_FROM_BUFFER(telemetry_payload);
+        getTelemetryPayload(telemetry, &telemetry, temperature, pressure, humidity);
+        sendTelemetry(telemetry);
+
         Props props;
         Props::load(props);
         int delayMs = props.getMeasureIntervalMs();

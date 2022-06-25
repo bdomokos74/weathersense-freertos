@@ -54,7 +54,7 @@ void Logger::error(const char* message, int i)
   ESP_LOGE(TAG, "%s - %s: %d\n", timebuf, message, i);
 }
 
-void Logger::printBuf(const char *header, const char *data, int len) {
+void Logger::printBuf(const char *tag, const char *header, const char *data, int len) {
     char buf[1024];
     az_span bufspan = AZ_SPAN_FROM_BUFFER(buf);
     az_span rem = az_span_copy(bufspan, az_span_create_from_str((char*)header));
@@ -64,7 +64,7 @@ void Logger::printBuf(const char *header, const char *data, int len) {
     char timebuf[32];
     this->writeTime(timebuf);
     this->writeTime(timebuf);
-    ESP_LOGI(TAG, " %s -%s\n", timebuf, buf);
+    ESP_LOGI(tag, " %s -%s\n", timebuf, buf);
 }
 
 void Logger::println(const char *str) {

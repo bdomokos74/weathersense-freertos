@@ -15,7 +15,9 @@ public:
   void info(const char *message, int i);
   void error(const char *message);
   void error(const char *message, int i);
-  void printBuf(const char *header, const char *data, int len);
+
+  void printBuf(const char *tag, const char *header, const char *data, int len);
+
   void println(const char *str1, const char *str2);
   void println(const char *str1, int i);
   void println(const char *str);

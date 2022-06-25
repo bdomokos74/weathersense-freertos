@@ -1,7 +1,7 @@
 #ifndef _WIOT_H
 #define _WIOT_H
 
-
+#include "az_core.h"
 
 #define MQTT_QOS1 1
 #define DO_NOT_RETAIN_MSG 0
@@ -9,7 +9,7 @@
 
 void initializeIoTHubClient();
 int initializeMqttClient();
-int sendTelemetry();
+int sendTelemetry(az_span telemetry);
 bool requestTwin();
 
 
