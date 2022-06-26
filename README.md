@@ -25,6 +25,14 @@ $env:IOT_CONFIG_DEVICE_KEY='\"<devicekey>\"'
 pio run
 ```
 
+### Run tests
+
+Prerequisites for running tests: PlatformIO native environment installed and C/C++ compiler installed. See: https://piolabs.com/blog/insights/unit-testing-part-1.html
+
+```
+pio test -e native
+```
+
 ### Upload and monitor
 
 ```

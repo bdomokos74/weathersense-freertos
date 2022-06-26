@@ -1,14 +1,13 @@
 #include "telemetry.h"
 
-#include "esp_log.h"
-#include "bmp280.h"
+//#include "esp_log.h"
 #include <time.h>
+#include "stdio.h"
+#include "wscommon.h"
 
-#define TAG "telemetry"
+#define TAG "TLMTRY"
 
-static bmp280_t temp_sensor;
 static int sensor_count = 0;
-
 
 static float temperature;
 static float pressure;
@@ -16,7 +15,19 @@ static float humidity;
 
 static uint32_t telemetry_send_count = 0;
 
-void getTelemetryPayload(az_span payload, az_span* out_payload, float temperature, float pressure, float humidity)
+Telemetry::Telemetry(
+    char *dataBuf,
+    int bufLen,
+    char **bufPoi,
+    int *numStored) {
+        this->dataBuf = dataBuf;
+        this->bufLen = bufLen;
+        this->bufPoi = bufPoi;
+        this->numStored = numStored;
+        *(this->bufPoi) = dataBuf;
+}
+
+void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, float temperature, float pressure, float humidity)
 {
   char tempBuf[20];
 
@@ -52,6 +63,34 @@ void getTelemetryPayload(az_span payload, az_span* out_payload, float temperatur
   payload = az_span_copy_u8(payload, '\0');
   
   *out_payload = az_span_slice(original_payload, 0, az_span_size(original_payload) - az_span_size(payload) - 1);
-  
-  ESP_LOGI(TAG, "payload = %s", (char*)az_span_ptr(*out_payload));
+}
+
+int Telemetry::getRemainingSize() {
+    return this->bufLen-(int)((*(this->bufPoi))-this->dataBuf);
+}
+
+int Telemetry::getStoredSize() {
+    return (int)((*(this->bufPoi))-this->dataBuf);
+}
+
+bool Telemetry::doesMeasurementFit(az_span meas) {
+    return (az_span_size(meas)+1)<=this->getRemainingSize();
+}
+
+int Telemetry::storeMeasurement(az_span meas) {
+    az_span buf = az_span_create((uint8_t*)*this->bufPoi, this->getRemainingSize());
+    buf = az_span_copy(buf, meas);
+    buf = az_span_copy_u8(buf, '\n');
+    *(this->bufPoi) = (char*)az_span_ptr(buf);
+    (*this->numStored)++;
+    return 1;
+}
+
+void Telemetry::buildStatus(char *buf, int len) {
+    snprintf(buf, len, "MEAS_STORE: numStored=%d, storedBytes=%d, remainingBytes=%d", *numStored, this->getStoredSize(), this->getRemainingSize());
+}
+
+void Telemetry::reset() {
+    *this->bufPoi = this->dataBuf;
+    (*numStored) = 0;
 }

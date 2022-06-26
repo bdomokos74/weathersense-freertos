@@ -1,4 +1,5 @@
 #include "bme280sensor.h"
+#include "wscommon.h"
 
 #include "esp_log.h"
 
