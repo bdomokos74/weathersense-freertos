@@ -27,10 +27,9 @@ Telemetry::Telemetry(
         *(this->bufPoi) = dataBuf;
 }
 
+static char tempBuf[20];
 void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, float temperature, float pressure, float humidity)
 {
-  char tempBuf[20];
-
   sprintf(tempBuf, "%.2f", temperature);
   az_span tempSpan = az_span_create_from_str(tempBuf);
 

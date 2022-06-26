@@ -62,10 +62,11 @@ int twinPropSubsId;
 int cldMsgSubOk = false;
 int twingetSubsOk = false;
 int twinPropSubsOk = false;
+static char spbuf[1500];
 esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 {
-  char buf[1500];
-  az_span sp = AZ_SPAN_FROM_BUFFER(buf);
+  logHWM();
+  az_span sp = AZ_SPAN_FROM_BUFFER(spbuf);
   switch (event->event_id)
   {
     int i, r;
@@ -134,7 +135,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
       break;
     case MQTT_EVENT_DATA:
       ESP_LOGI(TAG, "MQTT event MQTT_EVENT_DATA");
-      logger.printBuf(TAG, "topic: ", event->topic, event->topic_len);
+      logBuf(TAG, "topic: ", event->topic, event->topic_len);
       
       if(handleTwinResp(event)) {
         ESP_LOGI(TAG, "twin handled");
@@ -198,6 +199,7 @@ void initializeIoTHubClient()
   ESP_LOGI(TAG, "Broker URI: %s", mqtt_broker_uri);
 }
 
+static esp_mqtt_client_config_t mqtt_config;
 int initializeMqttClient()
 {
   #ifndef IOT_CONFIG_USE_X509_CERT
@@ -208,7 +210,6 @@ int initializeMqttClient()
   }
   #endif
 
-  esp_mqtt_client_config_t mqtt_config;
   memset(&mqtt_config, 0, sizeof(mqtt_config));
   mqtt_config.uri = mqtt_broker_uri;
   mqtt_config.port = mqtt_port;

@@ -19,6 +19,7 @@
 #include "esp_sntp.h"
 
 #include "app_wifi.h"
+#include "logger.h"
 
 static connect_wifi_params_t m_params;
 
@@ -29,6 +30,7 @@ static int retry_cnt = 0;
 static bool xTimeInitialized = false;
 static void prvTimeSyncNotificationCallback(struct timeval *pxTimeVal)
 {
+    logHWM();
     (void)pxTimeVal;
     ESP_LOGI(TAG, "Notification of a time synchronization event");
     xTimeInitialized = true;
@@ -45,10 +47,12 @@ static void prvTimeSyncNotificationCallback(struct timeval *pxTimeVal)
     if(m_params.on_timeset) {
         m_params.on_timeset();
     }
+    logHWM();
 }
 
 static void got_ip_cb(void)
 {
+    logHWM();
     // xTaskCreate(connect_aws_mqtt, "connect_aws_mqtt", 15 * configMINIMAL_STACK_SIZE, NULL, 5, NULL);
     // apptemp_init(publish_reading);
 
@@ -59,6 +63,7 @@ static void got_ip_cb(void)
 
     // readSensors();
     ESP_LOGI(TAG, "wifi connected...\n");
+    
 
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     sntp_set_time_sync_notification_cb(prvTimeSyncNotificationCallback);
@@ -70,7 +75,7 @@ static void got_ip_cb(void)
     {
         vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
-    
+    logHWM();
 }
 
 static void handle_wifi_connection(void *arg, esp_event_base_t event_base,
@@ -106,6 +111,7 @@ static void handle_wifi_connection(void *arg, esp_event_base_t event_base,
 
 void appwifi_connect(connect_wifi_params_t p)
 {
+
     m_params = p;
 
     if (nvs_flash_init() != ESP_OK)
@@ -140,4 +146,6 @@ void appwifi_connect(connect_wifi_params_t p)
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
     esp_wifi_start();
+
+    logHWM();
 }

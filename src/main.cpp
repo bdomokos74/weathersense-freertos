@@ -5,6 +5,7 @@
 #include "bmp280.h"
 #include <string.h>
 #include "esp_log.h"
+#include "Logger.h"
 
 #include "iot.h"
 #include "app_wifi.h"
@@ -12,6 +13,7 @@
 #include "bme280sensor.h"
 
 #include "props.h"
+#include "wake.h"
 
 extern "C" void app_main(void);
 
@@ -43,47 +45,54 @@ RTC_DATA_ATTR int numStored = 0;
 
 BME280Sensor *bme280Sensor;
 Telemetry *telemetry;
+static Props props;
+void logTelemetryStatus(Telemetry *telemetry) {
+    char statusBuf[200];
+    telemetry->buildStatus(statusBuf, sizeof(statusBuf));
+    ESP_LOGI(TAG, "%s", statusBuf);
+}
 
+static uint8_t telemetry_payload[100];
+static float temperature;
+static float pressure;
+static float humidity;
+static char telemetryTaskName[] = "TMTASK";
+static unsigned ttHwm = 0;
 static void telemetryTask(void *arg)
 {
+    
     bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
-    static uint8_t telemetry_payload[100];
-    float temperature;
-    float pressure;
-    float humidity;
-
-    char statusBuf[200];
 
     while (1)
     {
-        Props props;
         Props::load(props);
-
         bme280Sensor->readMeasurement(temperature, pressure, humidity);
         az_span meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
         telemetry->buildTelemetryPayload(meas, &meas, temperature, pressure, humidity);
 
         if(!telemetry->doesMeasurementFit(meas)||numStored>=props.getMeasureBatchSize()) {
             if(sendTelemetry(az_span_create((uint8_t*)dataBuf, telemetry->getStoredSize()))==0) {
-                ESP_LOGI(TAG, "Failed to send telemetry data");
+                ESP_LOGI(telemetryTaskName, "Failed to send telemetry data");
             } else {
                 telemetry->reset();
             } 
         } else {
+            logSpan(telemetryTaskName, "telemetry", meas);
             telemetry->storeMeasurement(meas);
-            telemetry->buildStatus(statusBuf, sizeof(statusBuf));
-            ESP_LOGI(TAG, "stored %s, %s", az_span_ptr(meas), statusBuf);
+            logTelemetryStatus(telemetry);
         }
         
         int delayMs = props.getMeasureIntervalMs();
-        ESP_LOGI(TAG, "delay: %d", delayMs);
+        ttHwm = logHWMIfHigher(telemetryTaskName, ttHwm);
+        ESP_LOGI(telemetryTaskName, "delay: %d ms", delayMs);
         vTaskDelay(delayMs / portTICK_PERIOD_MS);
     }
 }
 
 static void on_timeset() {
-    
-    xTaskCreate(telemetryTask, TAG, 3 * configMINIMAL_STACK_SIZE, NULL, 5, NULL);
+    uint32_t stackSize = 3 * configMINIMAL_STACK_SIZE;
+    ESP_LOGI(TAG, "Creating TMTASK, stackSize=%d", stackSize);
+    xTaskCreate(telemetryTask, "TMTASK", stackSize, NULL, 5, NULL);
 
     initializeIoTHubClient();
     
@@ -98,8 +107,16 @@ static void on_failed() {
     ESP_LOGI(TAG, "on_failed");
 }
 
+void c2d_info_handler(void) {
+    logWakeReason();
+    logTelemetryStatus(telemetry);
+}
+
+static unsigned hwm = 0;
 void app_main()
 {
+    logWakeReason();
+
     telemetry = new Telemetry(
         (char*)dataBuf,
         RTC_BUF_SIZE,
@@ -113,5 +130,12 @@ void app_main()
         .on_failed = on_failed,
         .on_timeset = on_timeset
     };
+    hwm = logHWMIfHigher(TAG, hwm);
     appwifi_connect(params);
+
+    ESP_LOGI(TAG, "after esp_wifi_start");
+    while(true) {
+        hwm = logHWMIfHigher(TAG, hwm);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
 }

@@ -7,16 +7,17 @@
 #include <az_core.h>
 #include "esp_log.h"
 
-class Logger
-{
-private:
-  void writeTime(char *buf);
-public:
-  Logger();
-  
-  void printBuf(const char *tag, const char *header, const char *data, int len);
-};
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-extern Logger logger;
+void logBuf(const char *tag, const char *header, const char *data, int len);
+void logSpan(const char *tag, const char *header, az_span span);
+unsigned logHWMIfHigher(const char *tag, unsigned prevMax);
+void logHWM();
 
-#endif // _SLLOGGER_H
+#ifdef __cplusplus
+}
+#endif
+
+#endif

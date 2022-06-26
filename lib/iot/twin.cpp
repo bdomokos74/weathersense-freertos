@@ -83,6 +83,7 @@ bool requestTwin()
     }
 }
 
+static char tokenBuf[30];
 Props* parseTwinResp(az_span twinResp)
 {
     az_result result;
@@ -102,8 +103,7 @@ Props* parseTwinResp(az_span twinResp)
     }
 
     result = az_json_reader_next_token(&jr);
-
-    char tokenBuf[30];
+    
     while (!propertyFound && (jr.token.kind != AZ_JSON_TOKEN_END_OBJECT))
     {
         az_span tokenSpan = AZ_SPAN_FROM_BUFFER(tokenBuf);
@@ -145,9 +145,9 @@ Props* parseTwinResp(az_span twinResp)
     return desired;
 }
 
+Props currProps;
 bool handleTwinResp(esp_mqtt_event_handle_t event)
 {
-
     az_iot_hub_client_twin_response response;
     if (az_result_failed(az_iot_hub_client_twin_parse_received_topic(&client, az_span_create((uint8_t *)event->topic, event->topic_len), &response)))
     {
@@ -159,44 +159,43 @@ bool handleTwinResp(esp_mqtt_event_handle_t event)
 
     if (response.response_type == AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_GET)
     {
-        logger.printBuf(TAG, "data: ", event->data, event->data_len);
+        logBuf(TAG, "data: ", event->data, event->data_len);
 
         Props *resp = parseTwinResp(az_span_create((uint8_t *)event->data, event->data_len));
         resp->debug("twinresp");
         delete resp;
         return true;
     } else if( response.response_type == AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_DESIRED_PROPERTIES) {
-        logger.printBuf(TAG, "DESIRED, req data: ", event->data, event->data_len);
+        logBuf(TAG, "DESIRED, req data: ", event->data, event->data_len);
         Props *desired = parseTwinResp(az_span_create((uint8_t *)event->data, event->data_len));
         
-        Props curr;
-        Props::load(curr);
-        curr.debug("curr");
+        Props::load(currProps);
+        currProps.debug("curr");
 
         //desired->debug("desired");
         
         Props::merge(*desired);
         
-        Props::load(curr);
-        curr.debug("new");
+        Props::load(currProps);
+        currProps.debug("new");
         delete desired;
 
-        sendTwinProp(&curr);
+        sendTwinProp(&currProps);
         //logger.printBuf("DESIRED: ", event->data, event->data_len);
         return true;
     } else if( response.response_type == AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES) {
         //twin: resptype=3 reqid=ptch_tmp st=204 ver=11958
         //2022/6/5 23:11:58 c2d topic: $iothub/twin/res/204/?$rid=ptch_tmp&$version=11958
-        logger.printBuf(TAG, "REPORTED: ", event->data, event->data_len);
+        logBuf(TAG, "REPORTED: ", event->data, event->data_len);
         return true;
     }
 
     return false;
 }
 
+static char printBuf[200];
 void printTwinResponseDetails(az_iot_hub_client_twin_response response)
 {
-    char printBuf[200];
     az_result result;
     az_span printSpan = AZ_SPAN_FROM_BUFFER(printBuf);
     az_span rem = az_span_copy(printSpan, AZ_SPAN_LITERAL_FROM_STR("twin: resptype="));
@@ -211,13 +210,13 @@ void printTwinResponseDetails(az_iot_hub_client_twin_response response)
     ESP_LOGI(TAG, "%s", printBuf);
 }
 
+static char twinSendBuf[1024];
 void sendTwinProp(Props *props)
 {
     ESP_LOGI(TAG, "sending twin patch");
-
-    char buf[1024];
+    
     az_result result;
-    az_span json_buffer = AZ_SPAN_FROM_BUFFER(buf);
+    az_span json_buffer = AZ_SPAN_FROM_BUFFER(twinSendBuf);
     az_json_writer jw;
 
     result = az_json_writer_init(&jw, json_buffer, NULL);
@@ -239,7 +238,7 @@ void sendTwinProp(Props *props)
     result = az_json_writer_append_end_object(&jw);
     az_span twin_payload = az_json_writer_get_bytes_used_in_destination(&jw);
 
-    logger.printBuf(TAG, "patch payload=", (char*)az_span_ptr(twin_payload), az_span_size(twin_payload));
+    logSpan(TAG, "patch payload=", twin_payload);
 
     //"$iothub/twin/PATCH/properties/reported/?$rid=patch_temp";
 
@@ -255,7 +254,7 @@ void sendTwinProp(Props *props)
         return;
     }
 
-    logger.printBuf(TAG, "twin patch topic: ", twin_patch_topic, topic_len);
+    logBuf(TAG, "twin patch topic: ", twin_patch_topic, topic_len);
 
     if (esp_mqtt_client_publish(
             mqtt_client,
