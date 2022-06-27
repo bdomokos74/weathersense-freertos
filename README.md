@@ -59,3 +59,8 @@ Solution:
 Create the mqtt_username like this: `<iot_hub_name>.azure-devices.net/<device_id>/?api-version=2021-04-12`.
 
 Without the api-version, the mqtt connection gets disconnected.
+
+
+### Deep sleep
+
+https://github.com/espressif/esp-idf/blob/c2ccc383dae2a47c2c2dc8c7ad78175a3fd11361/examples/system/deep_sleep/main/deep_sleep_example_main.c

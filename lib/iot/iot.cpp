@@ -9,6 +9,7 @@
 #include <mqtt_client.h>
 #include "ca.h"
 #include "telemetry.h"
+#include "tsafevars.h"
 
 #include "esp_log.h"
 
@@ -24,6 +25,8 @@ extern char* iotDeviceId;
 extern char* iotDeviceKey;
 
 extern char* mqtt_broker_uri;
+
+extern TSafeVars mainTSafeVars;
 
 // without this api version, the twin api will not work
 #define API_VER "/?api-version=2021-04-12"
@@ -44,7 +47,7 @@ static char mqtt_password[200];
 static uint8_t sas_signature_buffer[256];
 static char telemetry_topic[128];
 
-bool connected = false;
+static bool connected = false;
 
 // Auxiliary functions
 #ifndef IOT_CONFIG_USE_X509_CERT
@@ -73,6 +76,12 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
      
     case MQTT_EVENT_ERROR:
       ESP_LOGI(TAG, "MQTT event MQTT_EVENT_ERROR");
+      if(sasToken.IsExpired()) {
+        ESP_LOGI(TAG, "SAS token expired, requesting to destroy client");
+        mainTSafeVars.reqestMqttRestart();
+      } else {
+        ESP_LOGI(TAG, "SAS token OK, expiry=%lu", sasToken.GetExpirationTime());
+      }
       // TODO add details
       break;
     case MQTT_EVENT_CONNECTED:
@@ -199,6 +208,16 @@ void initializeIoTHubClient()
   ESP_LOGI(TAG, "Broker URI: %s", mqtt_broker_uri);
 }
 
+void mqttClientDisconnect() {
+  connected = false;
+  esp_mqtt_client_disconnect(mqtt_client);
+}
+
+void mqttClientDestroy() {
+  connected = false;
+  (void)esp_mqtt_client_destroy(mqtt_client);
+}
+
 static esp_mqtt_client_config_t mqtt_config;
 int initializeMqttClient()
 {
@@ -256,13 +275,12 @@ int initializeMqttClient()
 
 int sendTelemetry(az_span telemetry)
 {
-  ESP_LOGI(TAG, "Sending telemetry ...");
-
   if(!connected||!cldMsgSubOk) {
-    ESP_LOGI(TAG, "not connected, skip telemetry");
+    ESP_LOGI(TAG, "Not connected, skip telemetry");
     return 0;
+  } else {
+    ESP_LOGI(TAG, "Sending telemetry");
   }
-
 
   // The topic could be obtained just once during setup,
   // however if properties are used the topic need to be generated again to reflect the

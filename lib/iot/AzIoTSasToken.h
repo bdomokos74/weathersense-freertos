@@ -19,7 +19,8 @@ public:
   int Generate(unsigned int expiryTimeInMinutes);
   bool IsExpired();
   az_span Get();
-
+  unsigned long GetExpirationTime();
+  
 private:
   az_iot_hub_client* client;
   az_span deviceKey;

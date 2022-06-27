@@ -7,11 +7,13 @@ extern "C" {
 
 
 typedef void (*on_connected_f)(void);
+typedef void (*on_disconnected_f)(void);
 typedef void (*on_failed_f)(void);
 typedef void (*on_timeset_f)(void);
 
 typedef struct {
     on_connected_f on_connected;
+    on_disconnected_f on_disconnected;
     on_failed_f on_failed;
     on_timeset_f on_timeset;
 } connect_wifi_params_t;

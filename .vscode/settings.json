@@ -14,6 +14,7 @@
         "cstring": "c",
         "freertos.h": "c",
         "task.h": "c",
-        "iot.h": "c"
+        "iot.h": "c",
+        "thread": "cpp"
     }
 }

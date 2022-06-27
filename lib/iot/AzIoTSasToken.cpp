@@ -261,9 +261,14 @@ int AzIoTSasToken::Generate(unsigned int expiryTimeInMinutes)
     }
     else
     {
+      ESP_LOGI(TAG, "SAS expiration time: %lu", (unsigned long int)this->expirationUnixTime);
       return 0; 
     }
   }
+}
+
+unsigned long AzIoTSasToken::GetExpirationTime() {
+  return (unsigned long)this->expirationUnixTime;
 }
 
 bool AzIoTSasToken::IsExpired()

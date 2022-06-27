@@ -26,7 +26,7 @@ static connect_wifi_params_t m_params;
 
 #define MAX_RETRY 10
 static int retry_cnt = 0;
-
+static bool isConnected = false;
 static bool xTimeInitialized = false;
 static void prvTimeSyncNotificationCallback(struct timeval *pxTimeVal)
 {
@@ -81,19 +81,30 @@ static void got_ip_cb(void)
 static void handle_wifi_connection(void *arg, esp_event_base_t event_base,
                                    int32_t event_id, void *event_data)
 {
+    ESP_LOGI(TAG, "EVT=%s, id=%d", (char*)event_base, (int)event_id);
+    
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
     {
         esp_wifi_connect();
     }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
+        if (isConnected) 
+        {
+            isConnected = false;
+            if( m_params.on_disconnected)
+            {
+                m_params.on_disconnected();
+            }
+        }
+
         if (retry_cnt++ < MAX_RETRY)
         {
             esp_wifi_connect();
         }
         else
         {
-            if (m_params.on_failed)
+            if( m_params.on_failed)
             {
                 m_params.on_failed();
             }
@@ -101,12 +112,14 @@ static void handle_wifi_connection(void *arg, esp_event_base_t event_base,
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
+        isConnected = true;
         if (m_params.on_connected)
         {
+            retry_cnt = 0;
             m_params.on_connected();
         }
         got_ip_cb();
-    }
+    } 
 }
 
 void appwifi_connect(connect_wifi_params_t p)
