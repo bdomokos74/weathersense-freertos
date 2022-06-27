@@ -66,6 +66,17 @@ static float pressure;
 static float humidity;
 static char telemetryTaskName[] = "TMTASK";
 static unsigned ttHwm = 0;
+int trySendingTelemetry() {
+    if(sendTelemetry(az_span_create((uint8_t*)dataBuf, telemetry->getStoredSize()))==0) {
+        ESP_LOGI(telemetryTaskName, "Failed to send telemetry data");
+        return WSNOK;
+    } else {
+        ESP_LOGI(telemetryTaskName, "Stored telemetry sent out");
+        telemetry->reset();
+        esp_task_wdt_reset();
+        return WSOK;
+    } 
+}
 static void telemetryTask(void *arg)
 {
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
@@ -81,20 +92,20 @@ static void telemetryTask(void *arg)
             telemetry->buildTelemetryPayload(meas, &meas, temperature, pressure, humidity);
 
             if(numStored>=props.getMeasureBatchSize()) {
-                if(sendTelemetry(az_span_create((uint8_t*)dataBuf, telemetry->getStoredSize()))==0) {
-                    ESP_LOGI(telemetryTaskName, "Failed to send telemetry data");
-                } else {
-                    telemetry->reset();
-                    esp_task_wdt_reset();
-                } 
+                trySendingTelemetry();
             }
+            logSpan(telemetryTaskName, "telemetry", meas);
             if(telemetry->doesMeasurementFit(meas)) {
-                logSpan(telemetryTaskName, "telemetry", meas);
                 telemetry->storeMeasurement(meas);
-                logTelemetryStatus(telemetry);
             } else {
-                ESP_LOGE(telemetryTaskName, "Meas storage full, drop telemetry");
+                trySendingTelemetry();
+                if(telemetry->doesMeasurementFit(meas)) {
+                    telemetry->storeMeasurement(meas);
+                } else {
+                    ESP_LOGE(telemetryTaskName, "Can't store telemetry, dropping it...");
+                }
             }
+            logTelemetryStatus(telemetry);
         } else {
             ESP_LOGE(telemetryTaskName, "Sensor read failed, skip telemetry");
         }
