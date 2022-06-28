@@ -28,6 +28,7 @@ static connect_wifi_params_t m_params;
 static int retry_cnt = 0;
 static bool isConnected = false;
 static bool xTimeInitialized = false;
+static bool firstSync = true;
 static void prvTimeSyncNotificationCallback(struct timeval *pxTimeVal)
 {
     logHWM();
@@ -44,9 +45,10 @@ static void prvTimeSyncNotificationCallback(struct timeval *pxTimeVal)
     localtime_r(&now, &timeinfo);
     strftime(buf, sizeof(buf), "%H:%M:%S", &timeinfo);
     ESP_LOGI(TAG, "Sync successfull, time: %s", buf);
-    if(m_params.on_timeset) {
+    if(firstSync && m_params.on_timeset) {
         m_params.on_timeset();
     }
+    firstSync = false;
     logHWM();
 }
 
@@ -63,7 +65,7 @@ static void got_ip_cb(void)
 
     // readSensors();
     ESP_LOGI(TAG, "wifi connected...\n");
-    
+    firstSync = true;
 
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     sntp_set_time_sync_notification_cb(prvTimeSyncNotificationCallback);

@@ -123,6 +123,7 @@ static void on_timeset() {
     if(ttask==NULL) {
         ttask = xTaskCreate(telemetryTask, "TMTASK", stackSize, NULL, 5, NULL);
     }
+    mqttClientDestroy();
     initializeIoTHubClient();
     initializeMqttClient();
 }

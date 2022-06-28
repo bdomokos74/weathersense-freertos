@@ -215,7 +215,9 @@ void mqttClientDisconnect() {
 
 void mqttClientDestroy() {
   connected = false;
-  (void)esp_mqtt_client_destroy(mqtt_client);
+  if(mqtt_client!=NULL) {
+    (void)esp_mqtt_client_destroy(mqtt_client);
+  }
 }
 
 static esp_mqtt_client_config_t mqtt_config;
