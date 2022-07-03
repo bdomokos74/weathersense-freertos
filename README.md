@@ -64,3 +64,7 @@ Without the api-version, the mqtt connection gets disconnected.
 ### Deep sleep
 
 https://github.com/espressif/esp-idf/blob/c2ccc383dae2a47c2c2dc8c7ad78175a3fd11361/examples/system/deep_sleep/main/deep_sleep_example_main.c
+
+To persist variables between wakeups see (the second way): https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/deep-sleep-stub.html#loading-data-into-rtc-memory and [rtc_wake_stub_storage.c](lib/telemetry/rtc_wake_stub_storage.c)
+
+

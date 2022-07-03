@@ -12,13 +12,13 @@
 
 SemaphoreHandle_t Props::lock;
 
-RTC_DATA_ATTR int prop_doSleep = 0;
-RTC_DATA_ATTR int prop_sleepTimeSec = 30;
-RTC_DATA_ATTR int prop_measureIntervalMs = 30000;
-RTC_DATA_ATTR int prop_mesaureBatchSize = 5;
-RTC_DATA_ATTR int prop_ledPin = 0;
-RTC_DATA_ATTR char *prop_firmwareVersion = WS_VERSION;
-RTC_DATA_ATTR char *prop_gitRevision = GIT_REV;
+extern int prop_doSleep;
+extern int prop_sleepTimeSec;
+extern int prop_measureIntervalMs;
+extern int prop_mesaureBatchSize;
+extern int prop_ledPin;
+extern char *prop_firmwareVersion;
+extern char *prop_gitRevision;
 
 void Props::init() {
     BaseType_t rc;
@@ -104,6 +104,10 @@ int Props::getLedPin(){
 }
 
 void Props::debug(char *label) {
-    ESP_LOGI(TAG, "props.%s{fw=%s, gitrev=%s, measIntMs=%d, measBatch=%d}", label, this->firmwareVersion, this->gitRevision, this->measureIntervalMs, 
-    this->measureBatchSize);
+    if(this->firmwareVersion!=NULL && this->gitRevision!=NULL)
+        ESP_LOGI(TAG, "%s{fw=%s, gitrev=%s, sleep=%d, measIntMs=%d, measBatch=%d}", label, this->firmwareVersion, this->gitRevision, 
+        this->getDoSleep(), this->measureIntervalMs, this->measureBatchSize);
+    else        
+        ESP_LOGI(TAG, "%s{sleep=%d, measIntMs=%d, measBatch=%d}", label, 
+        this->getDoSleep(), this->measureIntervalMs, this->measureBatchSize);
 }

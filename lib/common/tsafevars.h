@@ -9,12 +9,19 @@ class TSafeVars
 private:
     SemaphoreHandle_t lock;
     bool mqttRestart;
+    bool twinGetSuccess;
+    bool twinPatchSuccess;
 public:
     TSafeVars();
 
     bool getAndClearMqttRestartReqested();
     void reqestMqttRestart();
     
+    bool getAndClearTwinGetSuccess();
+    void setTwinGetSuccess();
+
+    bool getAndClearTwinPatchSuccess();
+    void setTwinPatchSuccess();
 };
 
 #endif

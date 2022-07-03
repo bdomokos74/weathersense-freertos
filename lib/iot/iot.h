@@ -13,6 +13,7 @@ void initializeIoTHubClient();
 int initializeMqttClient();
 int sendTelemetry(az_span telemetry);
 bool requestTwin();
+void sendTwinProp();
 void mqttClientDisconnect();
 void mqttClientDestroy();
 

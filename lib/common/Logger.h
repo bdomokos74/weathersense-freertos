@@ -13,8 +13,15 @@ extern "C" {
 
 void logBuf(const char *tag, const char *header, const char *data, int len);
 void logSpan(const char *tag, const char *header, az_span span);
-unsigned logHWMIfHigher(const char *tag, unsigned prevMax);
-void logHWM();
+unsigned logHWMIfHigher1(unsigned prevMax, char *fname, int line);
+void logHWM1(char *fname, int line);
+
+#define logHWM() \
+    logHWM1(__FILE__, __LINE__);
+
+#define logHWMIfHigher(prevMax) \
+    logHWMIfHigher1(prevMax, __FILE__, __LINE__);
+
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,7 @@
 #include "telemetry.h"
 
 //#include "esp_log.h"
+
 #include <time.h>
 #include "stdio.h"
 #include "wscommon.h"
@@ -9,22 +10,19 @@
 
 static int sensor_count = 0;
 
-static float temperature;
-static float pressure;
-static float humidity;
-
-static uint32_t telemetry_send_count = 0;
 
 Telemetry::Telemetry(
     char *dataBuf,
     int bufLen,
-    char **bufPoi,
-    int *numStored) {
+    char *bufPoi,
+    int *numStored,
+    int *tmId) {
         this->dataBuf = dataBuf;
         this->bufLen = bufLen;
         this->bufPoi = bufPoi;
         this->numStored = numStored;
-        *(this->bufPoi) = dataBuf;
+        this->telemetryId = tmId;
+        //*(this->bufPoi) = dataBuf;
 }
 
 static char tempBuf[20];
@@ -45,7 +43,7 @@ void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, flo
   az_span original_payload = payload;
 
   payload = az_span_copy(payload, AZ_SPAN_FROM_STR("{\"id\":"));
-  (void)az_span_u32toa(payload, telemetry_send_count++, &payload);
+  (void)az_span_u32toa(payload, (*(this->telemetryId))++, &payload);
 
   payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"ts\":"));
   time_t now = time(NULL);
@@ -64,12 +62,21 @@ void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, flo
   *out_payload = az_span_slice(original_payload, 0, az_span_size(original_payload) - az_span_size(payload) - 1);
 }
 
+char *Telemetry::getDataBuf() {
+    return this->dataBuf;
+}
+
+
+int Telemetry::getNumStored() {
+    return *(this->numStored);
+}
+
 int Telemetry::getRemainingSize() {
-    return this->bufLen-(int)((*(this->bufPoi))-this->dataBuf);
+    return this->bufLen-(int)(this->bufPoi-this->dataBuf);
 }
 
 int Telemetry::getStoredSize() {
-    return (int)((*(this->bufPoi))-this->dataBuf);
+    return (int)(this->bufPoi-this->dataBuf);
 }
 
 bool Telemetry::doesMeasurementFit(az_span meas) {
@@ -77,19 +84,21 @@ bool Telemetry::doesMeasurementFit(az_span meas) {
 }
 
 int Telemetry::storeMeasurement(az_span meas) {
-    az_span buf = az_span_create((uint8_t*)*this->bufPoi, this->getRemainingSize());
+    //ESP_LOGI("TELEMETRY", "storing meas, databuf=%p, bufPoi=%p, %d", this->dataBuf, this->bufPoi, this->getRemainingSize());
+    az_span buf = az_span_create((uint8_t*)(this->bufPoi), this->getRemainingSize());
     buf = az_span_copy(buf, meas);
     buf = az_span_copy_u8(buf, '\n');
-    *(this->bufPoi) = (char*)az_span_ptr(buf);
+    this->bufPoi = (char*)az_span_ptr(buf);
     (*this->numStored)++;
+    //ESP_LOGI("TELEMETRY AFTER", "storing meas, databuf=%p, bufPoi=%p, %d", this->dataBuf, this->bufPoi, this->getRemainingSize());
     return 1;
 }
 
 void Telemetry::buildStatus(char *buf, int len) {
-    snprintf(buf, len, "MEAS_STORE: numStored=%d, storedBytes=%d, remainingBytes=%d", *numStored, this->getStoredSize(), this->getRemainingSize());
+    snprintf(buf, len, "MEAS_STORE: numStored=%d, storedBytes=%d, remainingBytes=%d", this->getNumStored(), this->getStoredSize(), this->getRemainingSize());
 }
 
 void Telemetry::reset() {
-    *this->bufPoi = this->dataBuf;
-    (*numStored) = 0;
+    this->bufPoi = this->dataBuf;
+    *(this->numStored) = 0;
 }

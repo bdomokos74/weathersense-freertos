@@ -1,9 +1,11 @@
 #include "wake.h"
 #include "az_core.h"
 #include "esp_log.h"
-
+#include "esp_task_wdt.h"
+#include "esp_wifi.h"
 #include "esp_sleep.h"
 #include "esp_timer.h"
+#include "wscommon.h"
 
 #define TAG "WAKE"
 
@@ -58,4 +60,12 @@ void logWakeReason() {
     }
     result = az_span_copy_u8(result, 0);
     ESP_LOGI(TAG, "%s", reasonStr);
+}
+
+void goSleep(uint64_t delay) {
+    ESP_LOGI(TAG, "Going to sleep, %d sec", (int)(delay/uS_TO_S_FACTOR));
+    esp_wifi_stop();
+    esp_sleep_enable_timer_wakeup(delay);
+    esp_deep_sleep_start();
+    
 }

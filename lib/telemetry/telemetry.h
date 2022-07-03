@@ -4,20 +4,24 @@
 #include <az_core.h>
 
 class Telemetry {
-private:
+protected:
     char *dataBuf;
     int bufLen;
-    char **bufPoi;
+    char *bufPoi;
     int *numStored;
+    int *telemetryId;
 public:
     Telemetry(
         char *dataBuf,
         int bufLen,
-        char **poi,
-        int *numStored);
+        char *poi,
+        int *numStored,
+        int *telemetryId);
 
     void buildTelemetryPayload(az_span payload, az_span* out_payload, float t, float p, float h);
 
+    char *getDataBuf();
+    int getNumStored();
     int getStoredSize();
     int getRemainingSize();
     bool doesMeasurementFit(az_span meas);

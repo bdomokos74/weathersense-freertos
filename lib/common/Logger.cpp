@@ -5,7 +5,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-static char lbuf[1024];
+static char lbuf[512];
 void logBuf(const char *tag, const char *header, const char *data, int len) {
 
     az_span bufspan = AZ_SPAN_FROM_BUFFER(lbuf);
@@ -19,22 +19,27 @@ void logSpan(const char *tag, const char *header, az_span span) {
     logBuf(tag, header, (char*)az_span_ptr(span), az_span_size(span));
 }
 
-unsigned logHWMIfHigher(const char *tag, unsigned prevMax) {
-    unsigned tmp = uxTaskGetStackHighWaterMark(NULL);
-    if(tmp > prevMax) {
-        ESP_LOGI(tag, "HWM=%d", tmp);
-        return tmp;
+unsigned logHWMIfHigher1(unsigned prevMax, char *fname, int line) {
+    TaskStatus_t xTaskDetails;
+    vTaskGetInfo(NULL,
+                  &xTaskDetails,
+                  pdTRUE,
+                  eInvalid );
+
+    if(xTaskDetails.usStackHighWaterMark > prevMax) {
+        ESP_LOGI((const char*)xTaskDetails.pcTaskName, "HWM UP=%d - at %s:%d", xTaskDetails.usStackHighWaterMark, fname, line);
+        return xTaskDetails.usStackHighWaterMark;
     } else {
         return prevMax;
     }
 }
 
 
-void logHWM() {
+void logHWM1(char *fname, int line) {
     TaskStatus_t xTaskDetails;
     vTaskGetInfo(NULL,
                   &xTaskDetails,
                   pdTRUE,
                   eInvalid );
-    ESP_LOGI(xTaskDetails.pcTaskName, "HWM=%d", xTaskDetails.usStackHighWaterMark);
+    ESP_LOGI((const char*)xTaskDetails.pcTaskName, "HWM=%d - at %s:%d", xTaskDetails.usStackHighWaterMark, fname, line);
 }

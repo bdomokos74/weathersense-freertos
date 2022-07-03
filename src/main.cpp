@@ -22,16 +22,12 @@
 
 extern "C" void app_main(void);
 
-#define SDA_GPIO 21
-#define SCL_GPIO 22
-
 #define TAG "MAIN"
 
 #define OW_SENSOR_PIN 19
 #define MAX_SENSORS 8
 #define BME_ADDR 0x77
 
-#define WIFI_FAIL_SLEEP_TIME_SEC 60*30
 
 // static ds18x20_addr_t addrs[MAX_SENSORS];
 //static bmp280_t temp_sensor;
@@ -46,12 +42,12 @@ char *iotDeviceId = IOT_CONFIG_DEVICE_ID;
 char *iotDeviceKey = IOT_CONFIG_DEVICE_KEY;
 
 #define RTC_BUF_SIZE 3072
-RTC_DATA_ATTR char dataBuf[RTC_BUF_SIZE];
-RTC_DATA_ATTR char *bufPoi = dataBuf;
-RTC_DATA_ATTR int numStored = 0;
+extern char dataBuf[];
+extern char *bufPoi;
+extern int numStored;
+extern int telemetryId;
 
 BME280Sensor *bme280Sensor;
-Telemetry *telemetry;
 static Props props;
 
 void logTelemetryStatus(Telemetry *telemetry) {
@@ -61,44 +57,58 @@ void logTelemetryStatus(Telemetry *telemetry) {
 }
 
 static uint8_t telemetry_payload[100];
-static float temperature;
-static float pressure;
-static float humidity;
 static char telemetryTaskName[] = "TMTASK";
 static unsigned ttHwm = 0;
-int trySendingTelemetry() {
-    if(sendTelemetry(az_span_create((uint8_t*)dataBuf, telemetry->getStoredSize()))==0) {
+int trySendingTelemetry(Telemetry *telemetry) {
+    ESP_LOGI(telemetryTaskName, "try sending telemetry");
+    if(sendTelemetry(az_span_create((uint8_t*)telemetry->getDataBuf(), telemetry->getStoredSize()))==0) {
         ESP_LOGI(telemetryTaskName, "Failed to send telemetry data");
         return WSNOK;
     } else {
         ESP_LOGI(telemetryTaskName, "Stored telemetry sent out");
         telemetry->reset();
-        esp_task_wdt_reset();
         return WSOK;
     } 
 }
 static void telemetryTask(void *arg)
 {
+    ESP_LOGI(telemetryTaskName, "started, dataBuf=%p, bufpoi=%p, numStored=%p, telemetryId=%p", dataBuf, bufPoi, &numStored, &telemetryId);
+    Telemetry *telemetry = new Telemetry(
+        (char*)dataBuf,
+        RTC_BUF_SIZE,
+        (char*)bufPoi,
+        &numStored,
+        &telemetryId
+    );
+    ESP_LOGI(TAG, "INITIAL telemetry store:");
+    
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
     esp_task_wdt_add(NULL);    
     bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
-
+    float temperature;
+    float pressure;
+    float humidity;
     while (1)
     {
+        ESP_LOGI(telemetryTaskName, "loop");
         Props::load(props);
         if(bme280Sensor->readMeasurement(temperature, pressure, humidity)==WSOK) 
         {
             az_span meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
             telemetry->buildTelemetryPayload(meas, &meas, temperature, pressure, humidity);
 
-            if(numStored>=props.getMeasureBatchSize()) {
-                trySendingTelemetry();
+            if(telemetry->getNumStored()>=props.getMeasureBatchSize()) {
+                if(trySendingTelemetry(telemetry)==WSOK) {
+                    esp_task_wdt_reset();
+                };
             }
             logSpan(telemetryTaskName, "telemetry", meas);
             if(telemetry->doesMeasurementFit(meas)) {
+                 ESP_LOGI(telemetryTaskName, "storing measurement");
                 telemetry->storeMeasurement(meas);
+                ESP_LOGI(telemetryTaskName, "done stoing measurement");
             } else {
-                trySendingTelemetry();
+                trySendingTelemetry(telemetry);
                 if(telemetry->doesMeasurementFit(meas)) {
                     telemetry->storeMeasurement(meas);
                 } else {
@@ -110,8 +120,15 @@ static void telemetryTask(void *arg)
             ESP_LOGE(telemetryTaskName, "Sensor read failed, skip telemetry");
         }
         int delayMs = props.getMeasureIntervalMs();
-        ttHwm = logHWMIfHigher(telemetryTaskName, ttHwm);
+        ttHwm = logHWMIfHigher(ttHwm);
         ESP_LOGI(telemetryTaskName, "delay: %d ms", delayMs);
+
+        if(props.getDoSleep()>0) {
+            mqttClientDisconnect();
+            //vTaskDelay(1000 / portTICK_PERIOD_MS);
+            mqttClientDestroy();
+            goSleep(mS_TO_S_FACTOR * props.getMeasureIntervalMs());
+        }
         vTaskDelay(delayMs / portTICK_PERIOD_MS);
     }
 }
@@ -121,7 +138,7 @@ static void on_timeset() {
     uint32_t stackSize = 3 * configMINIMAL_STACK_SIZE;
     ESP_LOGI(TAG, "Creating TMTASK, stackSize=%d", stackSize);
     if(ttask==NULL) {
-        ttask = xTaskCreate(telemetryTask, "TMTASK", stackSize, NULL, 5, NULL);
+        ttask = xTaskCreate(telemetryTask, telemetryTaskName, stackSize, NULL, 5, NULL);
     }
     mqttClientDestroy();
     initializeIoTHubClient();
@@ -132,12 +149,9 @@ static void on_connected() {
     ESP_LOGI(TAG, "on_connected");
 }
 
-#define uS_TO_S_FACTOR 1000000
 static void on_failed() {
     ESP_LOGI(TAG, "on_failed");
-    esp_sleep_enable_timer_wakeup(uS_TO_S_FACTOR * WIFI_FAIL_SLEEP_TIME_SEC);
-    esp_deep_sleep_start();
-    ESP_LOGI(TAG, "Going to sleep, %d sec", WIFI_FAIL_SLEEP_TIME_SEC);
+    goSleep(uS_TO_S_FACTOR * WIFI_FAIL_SLEEP_TIME_SEC);
 }
 
 static void on_disconnected() {
@@ -145,43 +159,35 @@ static void on_disconnected() {
     mqttClientDestroy();
 }
 
-
 void c2d_info_handler(void) {
     uint8_t macBuf[6];
     logWakeReason();
-    logTelemetryStatus(telemetry);
+    //logTelemetryStatus(telemetry);
     esp_read_mac(macBuf, ESP_MAC_WIFI_STA);
     hexDump("MAC", macBuf, sizeof(macBuf), 16);
 }
 
-static unsigned hwm = 0;
+
+void runInSleepMode();
+
 TSafeVars mainTSafeVars;
-void app_main()
-{
-
-    logWakeReason();
-
-    telemetry = new Telemetry(
-        (char*)dataBuf,
-        RTC_BUF_SIZE,
-        &bufPoi,
-        &numStored
-    );
-
-    Props::init();
+static unsigned hwm = 0;
+void runInConnectedMode() {
     connect_wifi_params_t params = {
         .on_connected = on_connected,
         .on_disconnected = on_disconnected,
         .on_failed = on_failed,
         .on_timeset = on_timeset
     };
-    hwm = logHWMIfHigher(TAG, hwm);
+    hwm = logHWMIfHigher(hwm);
+
     appwifi_connect(params);
 
     ESP_LOGI(TAG, "after esp_wifi_start");
     while(true) {
-        hwm = logHWMIfHigher(TAG, hwm);
+        hwm = logHWMIfHigher(hwm);
 
+        // when the sas token expires...
         if(mainTSafeVars.getAndClearMqttRestartReqested()) {
             mqttClientDestroy();
             initializeIoTHubClient();
@@ -189,5 +195,28 @@ void app_main()
         }
 
         vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+}
+
+void app_main()
+{
+    ESP_LOGI(TAG, "app_main called");
+    logWakeReason();
+
+
+    Props::init();
+    Props::load(props);
+
+    if(props.getDoSleep()>0) {
+        ESP_LOGI(TAG, "sleep mode selected");
+        runInSleepMode();
+    } else {
+        ESP_LOGI(TAG, "conn mode selected, databuf=%p, bufpoi=%p", dataBuf, bufPoi);
+        props.debug("INITIAL");
+        bufPoi = (char*)(dataBuf);
+        ESP_LOGI(TAG, "conn mode selected, databuf=%p, bufpoi=%p", dataBuf, bufPoi);
+        numStored = 0;
+        telemetryId = 0;
+        runInConnectedMode();
     }
 }

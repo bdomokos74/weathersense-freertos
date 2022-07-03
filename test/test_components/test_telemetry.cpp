@@ -13,7 +13,6 @@ void hexDump (
 
 char buf[200];
 char *poi = buf;
-int numStored;
 
 void setUp(void) {
     // set stuff up here
@@ -26,12 +25,14 @@ void tearDown(void) {
 }
 
 void test_telemetry_store_measurement(void) {
+    int numStored = 0;
+    int telemetryId = 1;
     printf("\n");
     printf("---- buf=0x%x\n", buf);
     printf("---- poi=0x%x\n", poi);
     
     Telemetry *t = new Telemetry(
-        buf, sizeof(buf), &poi, &numStored
+        buf, sizeof(buf), poi, &numStored, &telemetryId
     );
 
     memset(buf, 0, sizeof(buf));
@@ -85,11 +86,44 @@ void test_telemetry_store_measurement(void) {
 
 }
 
+void test_telemetry_build_telemetry(void) {
+    int numStored = 0;
+    int telemetryId = 1;
+
+    static uint8_t telemetry_payload[100];
+    az_span meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
+    Telemetry *t = new Telemetry(
+        buf, sizeof(buf), poi, &numStored, &telemetryId
+    );
+
+    t->buildTelemetryPayload(meas, &meas, 1.0, 2.0, 3.0);
+    t->storeMeasurement(meas);
+
+    // TODO: mock time
+    TEST_ASSERT_EQUAL_STRING_LEN("{\"id\":1,", az_span_ptr(meas), 8);
+    TEST_ASSERT_EQUAL_STRING_LEN(",\"t1\":1.00,\"p\":2.00,\"h\":3.00}", az_span_ptr(meas)+23, az_span_size(meas)-23);
+
+    char statusBuf[100];
+    t->buildStatus(statusBuf, sizeof(statusBuf));
+    TEST_ASSERT_EQUAL_STRING("MEAS_STORE: numStored=1, storedBytes=53, remainingBytes=147", statusBuf);
+
+    meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
+    t->buildTelemetryPayload(meas, &meas, 4.0, 5.0, 6.0);
+    t->storeMeasurement(meas);
+
+    TEST_ASSERT_EQUAL_STRING_LEN("{\"id\":2,", az_span_ptr(meas), 8);
+    TEST_ASSERT_EQUAL_STRING_LEN(",\"t1\":4.00,\"p\":5.00,\"h\":6.00}", az_span_ptr(meas)+23, az_span_size(meas)-23);
+
+    t->buildStatus(statusBuf, sizeof(statusBuf));
+    TEST_ASSERT_EQUAL_STRING("MEAS_STORE: numStored=2, storedBytes=106, remainingBytes=94", statusBuf);
+}
+
 
 int main( int argc, char **argv) {
     printf("starting");
     UNITY_BEGIN();
     RUN_TEST(test_telemetry_store_measurement);
+    RUN_TEST(test_telemetry_build_telemetry);
     UNITY_END();
     return 0;
 }

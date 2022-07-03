@@ -24,3 +24,41 @@ void TSafeVars::reqestMqttRestart() {
     this->mqttRestart = true;
     rc = xSemaphoreGive(this->lock);
 }
+
+bool TSafeVars::getAndClearTwinGetSuccess() {
+    BaseType_t rc;
+    bool result;
+    rc = xSemaphoreTake(this->lock, portMAX_DELAY);
+    result = this->twinGetSuccess;
+    if(result==true) {
+        this->twinGetSuccess = false;
+    }
+    rc = xSemaphoreGive(this->lock);
+    return result;
+
+}
+void TSafeVars::setTwinGetSuccess() {
+    BaseType_t rc;
+    rc = xSemaphoreTake(this->lock, portMAX_DELAY);
+    this->twinGetSuccess = true;
+    rc = xSemaphoreGive(this->lock);
+}
+
+bool TSafeVars::getAndClearTwinPatchSuccess() {
+    BaseType_t rc;
+    bool result;
+    rc = xSemaphoreTake(this->lock, portMAX_DELAY);
+    result = this->twinPatchSuccess;
+    if(result==true) {
+        this->twinPatchSuccess = false;
+    }
+    rc = xSemaphoreGive(this->lock);
+    return result;
+}
+
+void TSafeVars::setTwinPatchSuccess() {
+    BaseType_t rc;
+    rc = xSemaphoreTake(this->lock, portMAX_DELAY);
+    this->twinPatchSuccess = true;
+    rc = xSemaphoreGive(this->lock);
+}
