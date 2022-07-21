@@ -125,6 +125,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
     case MQTT_EVENT_DISCONNECTED:
       ESP_LOGI(TAG, "MQTT event MQTT_EVENT_DISCONNECTED");
       connected = false;
+      mainTSafeVars.setDisconnected();
       break;
     case MQTT_EVENT_SUBSCRIBED:
       ESP_LOGI(TAG, "MQTT event MQTT_EVENT_SUBSCRIBED msgid=%d", event->msg_id);

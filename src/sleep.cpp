@@ -2,10 +2,9 @@
 #include <freertos/task.h>
 #include "bmp280.h"
 #include <string.h>
-#include "esp_log.h"
 #include "esp_task_wdt.h"
 #include "esp_sleep.h"
-
+#include "esp_log.h"
 #include "Logger.h"
 
 #include "iot.h"
@@ -30,9 +29,8 @@ static char telemetrySleepTaskName[] = "TMSTASK";
 
 static Props props;
 
-#define RTC_BUF_SIZE 3072
 extern char dataBuf[];
-extern char *bufPoi;
+extern int bytesStored;
 extern int numStored;
 extern int telemetryId;
 
@@ -41,8 +39,7 @@ static void telemetryTaskSleepmode(void *arg)
 {
     Telemetry *telemetry = new Telemetry(
         (char*)dataBuf,
-        RTC_BUF_SIZE,
-        bufPoi,
+        &bytesStored,
         &numStored,
         &telemetryId
     );
@@ -81,8 +78,9 @@ static void telemetryTaskSleepmode(void *arg)
         ESP_LOGI(telemetrySleepTaskName, "Failed twin req/patch");
     }
     mqttClientDisconnect();
-    mqttClientDestroy();
-    goSleep(mS_TO_S_FACTOR * props.getMeasureIntervalMs());
+    while(true) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 }
 
 void logTelemetryStatus(Telemetry *telemetry);
@@ -98,7 +96,7 @@ static void on_failed() {
 
 static void on_disconnected() {
     ESP_LOGI(TAG, "on_disconnected");
-    mqttClientDestroy();
+    //mqttClientDestroy();
 }
 
 static volatile BaseType_t ttask = NULL;
@@ -111,7 +109,6 @@ static void on_timeset_sleepmode() {
     //mqttClientDestroy();
     initializeIoTHubClient();
     initializeMqttClient();
-
 }
 
 static unsigned hwm = 0;
@@ -129,19 +126,12 @@ void buildConnectionSleepMode() {
     ESP_LOGI(TAG, "after esp_wifi_start");
 }
 
-#define RTC_BUF_SIZE 3072
-extern char dataBuf[];
-extern char *bufPoi;
-extern int numStored;
-extern int telemetryId;
-
 static uint8_t telemetry_payload[100];
 az_span sleepModeMeas;
 void runInSleepMode() {
     Telemetry *telemetry = new Telemetry(
         (char*)dataBuf,
-        RTC_BUF_SIZE,
-        bufPoi,
+        &bytesStored,
         &numStored,
         &telemetryId
     );
@@ -162,6 +152,17 @@ void runInSleepMode() {
         if(telemetry->getNumStored()>=props.getMeasureBatchSize() || !telemetry->doesMeasurementFit(sleepModeMeas)) {
             ESP_LOGI(TAG, "connecting to send measurements");
             buildConnectionSleepMode();
+
+            while(!mainTSafeVars.getAndClearDisconnected()) {
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+            }
+            ESP_LOGI(telemetrySleepTaskName, "disconnect done");
+
+            telemetry->storeMeasurement(sleepModeMeas);
+            logTelemetryStatus(telemetry);
+
+            mqttClientDestroy();
+            goSleep(mS_TO_S_FACTOR * props.getMeasureIntervalMs());
         } else {
             ESP_LOGI(TAG, "storing telemetry");
             telemetry->storeMeasurement(sleepModeMeas);

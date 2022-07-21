@@ -13,16 +13,13 @@ static int sensor_count = 0;
 
 Telemetry::Telemetry(
     char *dataBuf,
-    int bufLen,
-    char *bufPoi,
+    int *bytesStored,
     int *numStored,
     int *tmId) {
         this->dataBuf = dataBuf;
-        this->bufLen = bufLen;
-        this->bufPoi = bufPoi;
+        this->bytesStored = bytesStored;
         this->numStored = numStored;
         this->telemetryId = tmId;
-        //*(this->bufPoi) = dataBuf;
 }
 
 static char tempBuf[20];
@@ -72,11 +69,11 @@ int Telemetry::getNumStored() {
 }
 
 int Telemetry::getRemainingSize() {
-    return this->bufLen-(int)(this->bufPoi-this->dataBuf);
+    return RTC_BUF_SIZE-(*this->bytesStored);
 }
 
 int Telemetry::getStoredSize() {
-    return (int)(this->bufPoi-this->dataBuf);
+    return *(this->bytesStored);
 }
 
 bool Telemetry::doesMeasurementFit(az_span meas) {
@@ -84,13 +81,14 @@ bool Telemetry::doesMeasurementFit(az_span meas) {
 }
 
 int Telemetry::storeMeasurement(az_span meas) {
-    //ESP_LOGI("TELEMETRY", "storing meas, databuf=%p, bufPoi=%p, %d", this->dataBuf, this->bufPoi, this->getRemainingSize());
-    az_span buf = az_span_create((uint8_t*)(this->bufPoi), this->getRemainingSize());
+    //ESP_LOGI("TELEMETRY", "storing meas, databuf=%p, bytesStored=%d, numStored=%d, remainingBytes=%d", this->dataBuf, *this->bytesStored, *this->numStored, this->getRemainingSize());
+    az_span buf = az_span_create((uint8_t*)(this->dataBuf+*(this->bytesStored)), this->getRemainingSize());
     buf = az_span_copy(buf, meas);
     buf = az_span_copy_u8(buf, '\n');
-    this->bufPoi = (char*)az_span_ptr(buf);
+    *(this->bytesStored) = ((char*)az_span_ptr(buf) - this->dataBuf);
     (*this->numStored)++;
-    //ESP_LOGI("TELEMETRY AFTER", "storing meas, databuf=%p, bufPoi=%p, %d", this->dataBuf, this->bufPoi, this->getRemainingSize());
+    //ESP_LOGI("TELEMETRY AFTER", "storing meas, databuf=%p, bytesStored=%d, numStored=%d, remainingBytes=%d", this->dataBuf, *this->bytesStored, *this->numStored, this->getRemainingSize());
+    //hexDump("buffer", this->numStored, 160, 16);
     return 1;
 }
 
@@ -99,6 +97,6 @@ void Telemetry::buildStatus(char *buf, int len) {
 }
 
 void Telemetry::reset() {
-    this->bufPoi = this->dataBuf;
     *(this->numStored) = 0;
+    *(this->bytesStored) = 0;
 }

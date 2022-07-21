@@ -11,6 +11,7 @@ private:
     bool mqttRestart;
     bool twinGetSuccess;
     bool twinPatchSuccess;
+    bool disconnected;
 public:
     TSafeVars();
 
@@ -22,6 +23,9 @@ public:
 
     bool getAndClearTwinPatchSuccess();
     void setTwinPatchSuccess();
+
+    bool getAndClearDisconnected();
+    void setDisconnected();
 };
 
 #endif

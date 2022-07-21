@@ -43,12 +43,14 @@ char *iotDeviceKey = IOT_CONFIG_DEVICE_KEY;
 
 #define RTC_BUF_SIZE 3072
 extern char dataBuf[];
-extern char *bufPoi;
+extern int bytesStored;
 extern int numStored;
 extern int telemetryId;
 
 BME280Sensor *bme280Sensor;
 static Props props;
+
+TSafeVars mainTSafeVars;
 
 void logTelemetryStatus(Telemetry *telemetry) {
     char statusBuf[200];
@@ -72,16 +74,16 @@ int trySendingTelemetry(Telemetry *telemetry) {
 }
 static void telemetryTask(void *arg)
 {
-    ESP_LOGI(telemetryTaskName, "started, dataBuf=%p, bufpoi=%p, numStored=%p, telemetryId=%p", dataBuf, bufPoi, &numStored, &telemetryId);
+    ESP_LOGI(telemetryTaskName, "started, dataBuf=%p, bytesStored=%d, numStored=%d, telemetryId=%d", dataBuf, bytesStored, numStored, telemetryId);
     Telemetry *telemetry = new Telemetry(
         (char*)dataBuf,
-        RTC_BUF_SIZE,
-        (char*)bufPoi,
+        &bytesStored,
         &numStored,
         &telemetryId
     );
     ESP_LOGI(TAG, "INITIAL telemetry store:");
     
+
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
     esp_task_wdt_add(NULL);    
     bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
@@ -126,6 +128,11 @@ static void telemetryTask(void *arg)
         if(props.getDoSleep()>0) {
             mqttClientDisconnect();
             //vTaskDelay(1000 / portTICK_PERIOD_MS);
+            while(!mainTSafeVars.getAndClearDisconnected()) {
+                 ESP_LOGI(telemetryTaskName, "waiting to disconnect");
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+            }
+            ESP_LOGI(telemetryTaskName, "disconnect done");
             mqttClientDestroy();
             goSleep(mS_TO_S_FACTOR * props.getMeasureIntervalMs());
         }
@@ -156,7 +163,7 @@ static void on_failed() {
 
 static void on_disconnected() {
     ESP_LOGI(TAG, "on_disconnected");
-    mqttClientDestroy();
+   // mqttClientDestroy();
 }
 
 void c2d_info_handler(void) {
@@ -170,7 +177,7 @@ void c2d_info_handler(void) {
 
 void runInSleepMode();
 
-TSafeVars mainTSafeVars;
+
 static unsigned hwm = 0;
 void runInConnectedMode() {
     connect_wifi_params_t params = {
@@ -211,10 +218,8 @@ void app_main()
         ESP_LOGI(TAG, "sleep mode selected");
         runInSleepMode();
     } else {
-        ESP_LOGI(TAG, "conn mode selected, databuf=%p, bufpoi=%p", dataBuf, bufPoi);
-        props.debug("INITIAL");
-        bufPoi = (char*)(dataBuf);
-        ESP_LOGI(TAG, "conn mode selected, databuf=%p, bufpoi=%p", dataBuf, bufPoi);
+        ESP_LOGI(TAG, "conn mode selected, databuf=%p, numStored=%d", dataBuf, numStored);
+        props.debug("INITIAL"); 
         numStored = 0;
         telemetryId = 0;
         runInConnectedMode();

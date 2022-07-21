@@ -62,3 +62,23 @@ void TSafeVars::setTwinPatchSuccess() {
     this->twinPatchSuccess = true;
     rc = xSemaphoreGive(this->lock);
 }
+
+
+bool TSafeVars::getAndClearDisconnected() {
+    BaseType_t rc;
+    bool result;
+    rc = xSemaphoreTake(this->lock, portMAX_DELAY);
+    result = this->disconnected;
+    if(result==true) {
+        this->disconnected = false;
+    }
+    rc = xSemaphoreGive(this->lock);
+    return result;
+}
+
+void TSafeVars::setDisconnected() {
+    BaseType_t rc;
+    rc = xSemaphoreTake(this->lock, portMAX_DELAY);
+    this->disconnected = true;
+    rc = xSemaphoreGive(this->lock);
+}

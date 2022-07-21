@@ -3,18 +3,19 @@
 
 #include <az_core.h>
 
+// TODO duplicated, also defined in rtc_wake_stub_storage.c
+#define RTC_BUF_SIZE 3072
+
 class Telemetry {
 protected:
     char *dataBuf;
-    int bufLen;
-    char *bufPoi;
+    int *bytesStored;
     int *numStored;
     int *telemetryId;
 public:
     Telemetry(
         char *dataBuf,
-        int bufLen,
-        char *poi,
+        int *bytesStored,
         int *numStored,
         int *telemetryId);
 
