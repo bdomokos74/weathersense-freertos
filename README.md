@@ -39,6 +39,8 @@ pio test -e native
 pio run -t upload | pio device monitor
 ```
 
+https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/establish-serial-connection.html
+
 
 ### Cert
 

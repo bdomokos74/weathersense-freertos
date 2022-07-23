@@ -8,3 +8,4 @@ azure_ex/azure-sdk-for-c
 localcfg.txt
 /*.old
 logs/
+tmp/
