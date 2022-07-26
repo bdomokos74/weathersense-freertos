@@ -2,7 +2,7 @@
 #include <az_core.h>
 #include <az_iot.h>
 #include "esp_log.h"
-#include <logger.h>
+#include <Logger.h>
 #include <mqtt_client.h>
 #include "wake.h"
 

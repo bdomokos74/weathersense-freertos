@@ -19,7 +19,7 @@
 #include "esp_sntp.h"
 
 #include "app_wifi.h"
-#include "logger.h"
+#include "Logger.h"
 
 static connect_wifi_params_t m_params;
 
