@@ -20,7 +20,7 @@ BME280Sensor::BME280Sensor(int sda, int scl) {
     bmp280_params_t params;
     bmp280_init_default_params(&params);
     // BMP280_I2C_ADDRESS_0
-    bmp280_init_desc(&temp_sensor, 0x77, 0,  (gpio_num_t)sda,  (gpio_num_t)scl);
+    bmp280_init_desc(&temp_sensor, BMP280_I2C_ADDRESS_1, 0,  (gpio_num_t)sda,  (gpio_num_t)scl);
     bmp280_init(&temp_sensor, &params);
  
     ESP_LOGI(TAG, "init done");

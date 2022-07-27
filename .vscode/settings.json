@@ -16,5 +16,6 @@
         "task.h": "c",
         "iot.h": "c",
         "thread": "cpp"
-    }
+    },
+    "files.autoSave": "onFocusChange"
 }

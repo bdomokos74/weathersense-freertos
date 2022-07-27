@@ -26,7 +26,7 @@ extern "C" void app_main(void);
 
 #define OW_SENSOR_PIN 19
 #define MAX_SENSORS 8
-#define BME_ADDR 0x77
+//#define BME_ADDR 0x76
 
 
 // static ds18x20_addr_t addrs[MAX_SENSORS];

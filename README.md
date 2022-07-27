@@ -70,3 +70,95 @@ https://github.com/espressif/esp-idf/blob/c2ccc383dae2a47c2c2dc8c7ad78175a3fd113
 To persist variables between wakeups see (the second way): https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/deep-sleep-stub.html#loading-data-into-rtc-memory and [rtc_wake_stub_storage.c](lib/telemetry/rtc_wake_stub_storage.c)
 
 
+### IDP config
+
+pio run -t menuconfig
+
+configUSE_TRACE_FACILITY = 1
+
+
+### boards
+
+
+https://github.com/platformio/platform-espressif32/tree/master/boards
+
+
+https://github.com/platformio/platform-espressif32/blob/master/boards/featheresp32.json
+https://www.adafruit.com/product/3405
+
+
+https://github.com/platformio/platform-espressif32/blob/master/boards/adafruit_feather_esp32_v2.json
+https://www.adafruit.com/product/5400
+
+
+# check image
+
+https://learn.adafruit.com/adafruit-esp32-s2-tft-feather/factory-reset
+
+~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32 image_info .pio/build/featheresp32/firmware.bin 
+
+~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32 image_info .pio/build/featheresp32/firmware.bin 
+esptool.py v3.3
+Image version: 1
+Entry point: 40081c10
+7 segments
+
+Segment 1: len 0x25798 load 0x3f400020 file_offs 0x00000018 [DROM]
+Segment 2: len 0x04434 load 0x3ffb0000 file_offs 0x000257b8 [BYTE_ACCESSIBLE,DRAM]
+Segment 3: len 0x0641c load 0x40080000 file_offs 0x00029bf4 [IRAM]
+Segment 4: len 0x99324 load 0x400d0020 file_offs 0x00030018 [IROM]
+Segment 5: len 0x108ec load 0x4008641c file_offs 0x000c9344 [IRAM]
+Segment 6: len 0x00064 load 0x400c0000 file_offs 0x000d9c38 [RTC_IRAM]
+Segment 7: len 0x00048 load 0x50000000 file_offs 0x000d9ca4 [RTC_DATA]
+Checksum: ce (valid)
+Validation Hash: 61302172867a81c99ff62e00115e642a0a1226969ac0b2b504c32fe9ac64e2c6 (valid)
+
+
+
+readelf.py -h -l  .pio/build/featheresp32/firmware.elf 
+
+------
+ets Jul 29 2019 12:21:46
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0018,len:4
+load:0x3fff001c,len:1044
+load:0x40078000,len:10124
+load:0x40080400,len:5856
+entry 0x400806a8
+I (311) cpu_start: Pro cpu up.
+D (311) efuse: In EFUSE_BLK0__DATA3_REG is used 1 bits starting with 15 bit
+D (311) efuse: In EFUSE_BLK0__DATA5_REG is used 1 bits starting with 20 bit
+D (317) efuse: In EFUSE_BLK0__DATA3_REG is used 3 bits starting with 9 bit
+D (324) efuse: In EFUSE_BLK0__DATA3_REG is used 1 bits starting with 2 bit
+I (331) cpu_start: Starting app cpu, entry point is 0x40081b58
+I (0) cpu_start: App cpu up.
+D (346) clk: RTC_SLOW_CLK calibration value: 3386048
+
+
+
+
+
+cpu_start.c:416 call_start_cpu0() 'pro cpu up'
+    -> cpu_start.c:214 start_other_core()  'Starting app cpu, entry point is...'
+    -> ets_set_appcpu_boot_addr(call_start_cpu1) // app cpu will call after app cpu boot completed
+|
+cpu_start.c:153 call_start_cpu1()
+
+startup.c:389 start_cpu0_default() 'Pro cpu start user code'
+
+bootloader_init.c:351 bootloader_init
+    bootloader_init.c:394 bootloader_print_banner '2nd stage bootloader'
+
+
+
+---- flashing manually
+~/.platformio/packages/tool-esptoolpy/esptool.py write_flash 0x8000 .pio/build/featheresp32/partitions.bin 
+~/.platformio/packages/tool-esptoolpy/esptool.py write_flash 0x1000 .pio/build/featheresp32/bootloader.bin 
+
+
+NOTES:
+
+- make the scl/sda twin parameters, as esp32 feather has different pinouts
