@@ -14,6 +14,7 @@
 #include "app_wifi.h"
 #include "telemetry.h"
 #include "bme280sensor.h"
+#include "dallas_sensor.h"
 #include "wscommon.h"
 
 #include "props.h"
@@ -24,8 +25,8 @@ extern "C" void app_main(void);
 
 #define TAG "MAIN"
 
-#define OW_SENSOR_PIN 19
-#define MAX_SENSORS 8
+//#define OW_SENSOR_PIN 19
+//#define MAX_SENSORS 8
 //#define BME_ADDR 0x76
 
 
@@ -48,6 +49,7 @@ extern int numStored;
 extern int telemetryId;
 
 BME280Sensor *bme280Sensor;
+DallasSensor *dallasSensor;
 static Props props;
 
 TSafeVars mainTSafeVars;
@@ -87,17 +89,36 @@ static void telemetryTask(void *arg)
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
     esp_task_wdt_add(NULL);    
     bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
+    dallasSensor = new DallasSensor(ONE_W_PIN);
     float temperature;
+    float temperature2;
     float pressure;
     float humidity;
+    float p2;
+    float h2;
+    bool showt1 = false,showt2 = false, showp = false, showh = false;
     while (1)
     {
         ESP_LOGI(telemetryTaskName, "loop");
         Props::load(props);
+
+
         if(bme280Sensor->readMeasurement(temperature, pressure, humidity)==WSOK) 
         {
+            showt1 = true;
+            showp = true;
+            showh = true;
+        }
+        if(dallasSensor->readMeasurement(temperature2, p2, h2)==WSOK) {
+            showt2 = true;
+        }
+        if(showt1||showt2||showp||showh) {
             az_span meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
-            telemetry->buildTelemetryPayload(meas, &meas, temperature, pressure, humidity);
+            telemetry->buildTelemetryPayload(meas, &meas, 
+                showt1, temperature, 
+                showt2, temperature2,
+                showp, pressure, 
+                showh, humidity);
 
             if(telemetry->getNumStored()>=props.getMeasureBatchSize()) {
                 if(trySendingTelemetry(telemetry)==WSOK) {

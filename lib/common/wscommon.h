@@ -12,6 +12,8 @@
 #define SCL_GPIO 22
 #define WIFI_FAIL_SLEEP_TIME_SEC 60*30
 
+#define ONE_W_PIN 21
+
 void hexDump (
     const char * desc,
     const void * addr,

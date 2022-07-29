@@ -20,6 +20,12 @@ public:
         int *telemetryId);
 
     void buildTelemetryPayload(az_span payload, az_span* out_payload, float t, float p, float h);
+    void buildTelemetryPayload(az_span payload, az_span* out_payload, float t, float t2, float p, float h);
+    void buildTelemetryPayload(az_span payload, az_span* out_payload, 
+        bool b1, float t, 
+        bool b2, float t2, 
+        bool b3, float p, 
+        bool b4, float h);
 
     char *getDataBuf();
     int getNumStored();

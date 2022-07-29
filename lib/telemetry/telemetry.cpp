@@ -22,19 +22,37 @@ Telemetry::Telemetry(
         this->telemetryId = tmId;
 }
 
-static char tempBuf[20];
+
+void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, float temperature, float temperature2, float pressure, float humidity)
+{
+    buildTelemetryPayload(payload, out_payload,
+    true, temperature, 
+    true, temperature2,
+    true, pressure,
+    true, humidity);
+}
+
 void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, float temperature, float pressure, float humidity)
 {
-  sprintf(tempBuf, "%.2f", temperature);
-  az_span tempSpan = az_span_create_from_str(tempBuf);
+    buildTelemetryPayload(payload, out_payload,
+    true, temperature, 
+    false, 0,
+    true, pressure,
+    true, humidity);
+}
 
-  char pBuf[20];
-  sprintf(pBuf, "%.2f", pressure);
-  az_span pSpan = az_span_create_from_str(pBuf);
+void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, 
+bool showt1, float temperature, 
+bool showt2, float temperature2, 
+bool showp, float pressure, 
+bool showh, float humidity)
+{
+  az_span tempSpan;
+  az_span tempSpan2;
+  az_span pSpan;
+  az_span hSpan;
 
-  char hBuf[20];
-  sprintf(hBuf, "%.2f", humidity);
-  az_span hSpan = az_span_create_from_str(hBuf);
+  char tempBuf[20];
 
   // --------
   az_span original_payload = payload;
@@ -46,13 +64,33 @@ void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, flo
   time_t now = time(NULL);
   (void)az_span_u64toa(payload, now, &payload);
   
-  payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"t1\":"));
-  payload = az_span_copy(payload, tempSpan);
-  payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"p\":"));
-  payload = az_span_copy(payload, pSpan);
-  payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"h\":"));
-  payload = az_span_copy(payload, hSpan);
+  if(showt1) {
+    payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"t1\":"));
+    sprintf(tempBuf, "%.2f", temperature);
+    tempSpan = az_span_create_from_str(tempBuf);
+    payload = az_span_copy(payload, tempSpan);
+  }
 
+  if(showt2) {
+    payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"t2\":"));
+    sprintf(tempBuf, "%.2f", temperature2);
+    tempSpan2 = az_span_create_from_str(tempBuf);
+    payload = az_span_copy(payload, tempSpan2);
+  }
+
+  if(showp) {
+    payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"p\":"));
+    sprintf(tempBuf, "%.2f", pressure);
+    pSpan = az_span_create_from_str(tempBuf);
+    payload = az_span_copy(payload, pSpan);
+  }
+
+  if(showh) {
+    payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"h\":"));
+    sprintf(tempBuf, "%.2f", humidity);
+    hSpan = az_span_create_from_str(tempBuf);
+    payload = az_span_copy(payload, hSpan);
+  }
   payload = az_span_copy(payload, AZ_SPAN_FROM_STR("}"));
   payload = az_span_copy_u8(payload, '\0');
   

@@ -162,3 +162,5 @@ bootloader_init.c:351 bootloader_init
 NOTES:
 
 - make the scl/sda twin parameters, as esp32 feather has different pinouts
+
+https://github.com/cpetrich/counterfeit_DS18B20
