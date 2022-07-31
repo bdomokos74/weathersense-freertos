@@ -21,6 +21,8 @@
 #include "tsafevars.h"
 #include "wake.h"
 
+#include "wsota.h"
+
 extern "C" void app_main(void);
 
 #define TAG "MAIN"

@@ -164,3 +164,15 @@ NOTES:
 - make the scl/sda twin parameters, as esp32 feather has different pinouts
 
 https://github.com/cpetrich/counterfeit_DS18B20
+
+### OTA
+
+https://docs.platformio.org/en/latest/platforms/espressif32.html#partition-tables
+
+https://github.com/espressif/esp-idf/tree/36f49f361c001b49c538364056bc5d2d04c6f321/examples/system/ota/advanced_https_ota
+
+
+~/.platformio/packages/tool-esptoolpy/esptool.py read_flash 0x8000 8192 tmp/part_orig.bin
+
+
+openssl s_client -showcerts -servername weathersenselake.blob.core.windows.net -connect weathersenselake.blob.core.windows.net:443 </dev/null

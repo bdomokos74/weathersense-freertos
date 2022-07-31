@@ -9,6 +9,8 @@
 #include "esp_log.h"
 #define TAG "TWIN"
 
+void ws_start_ota(char * str);
+
 extern az_iot_hub_client client;
 extern esp_mqtt_client_handle_t mqtt_client;
 //extern bool connected;
@@ -171,6 +173,12 @@ bool handleTwinResp(esp_mqtt_event_handle_t event)
         
         Props *desired = parseTwinResp(az_span_create((uint8_t *)event->data, event->data_len));
         Props::load(currProps);
+
+        if(strcmp(desired->getFirmwareVersion(), currProps.getFirmwareVersion())!=0) {
+            ESP_LOGI(TAG, "calling ws_start_ota %s <> %s", desired->getFirmwareVersion(), currProps.getFirmwareVersion());
+            ws_start_ota(NULL);
+        }
+
         currProps.debug("curr");
         //desired->debug("desired");        
         Props::merge(*desired);
