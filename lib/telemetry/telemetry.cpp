@@ -128,5 +128,7 @@ void Telemetry::reset() {
 }
 
 void Telemetry::addSensor(BaseSensor *s) {
-    this->sensors[this->numSensors++] = s;
+    if(s->isFound()) {
+        this->sensors[this->numSensors++] = s;
+    }
 }

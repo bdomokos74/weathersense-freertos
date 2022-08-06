@@ -9,7 +9,7 @@ class BME280Sensor: public BaseSensor
 private:
     bmp280_t temp_sensor;
 public:
-    BME280Sensor(int sda, int scl);
+    BME280Sensor(int sda, int scl, uint8_t addr);
     virtual int readMeasurement(float &temperature, bool &tf, float &pressure, bool &pf,  float &humidity, bool &hf );
 };
 

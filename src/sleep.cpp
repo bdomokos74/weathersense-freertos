@@ -22,7 +22,8 @@ extern TSafeVars mainTSafeVars;
 
 #define TAG "SLPMODE"
 
-static BME280Sensor *bme280Sensor;
+static BME280Sensor *bme280Sensor0;
+static BME280Sensor *bme280Sensor1;
 static DallasSensor *dallasSensor;
 
 int trySendingTelemetry(Telemetry *telemetry);
@@ -146,9 +147,11 @@ void runInSleepMode() {
 
 
     logTelemetryStatus(telemetry);
-    bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
+    bme280Sensor0 = new BME280Sensor(SDA_GPIO, SCL_GPIO, BMP280_I2C_ADDRESS_0);
+    bme280Sensor1 = new BME280Sensor(SDA_GPIO, SCL_GPIO, BMP280_I2C_ADDRESS_1);
     dallasSensor = new DallasSensor(ONE_W_PIN);
-    telemetry->addSensor(bme280Sensor);
+    telemetry->addSensor(bme280Sensor0);
+    telemetry->addSensor(bme280Sensor1);
     telemetry->addSensor(dallasSensor);
 
     sleepModeMeas = AZ_SPAN_FROM_BUFFER(telemetry_payload);

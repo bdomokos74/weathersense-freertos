@@ -51,7 +51,8 @@ extern int bytesStored;
 extern int numStored;
 extern int telemetryId;
 
-BME280Sensor *bme280Sensor;
+BME280Sensor *bme280Sensor0;
+BME280Sensor *bme280Sensor1;
 DallasSensor *dallasSensor;
 static Props props;
 
@@ -89,9 +90,11 @@ static void telemetryTask(void *arg)
     );
     ESP_LOGI(TAG, "INITIAL telemetry store:");
     
-    bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
+    bme280Sensor0 = new BME280Sensor(SDA_GPIO, SCL_GPIO, BMP280_I2C_ADDRESS_0);
+    bme280Sensor1 = new BME280Sensor(SDA_GPIO, SCL_GPIO, BMP280_I2C_ADDRESS_1);
     dallasSensor = new DallasSensor(ONE_W_PIN);
-    telemetry->addSensor(bme280Sensor);
+    telemetry->addSensor(bme280Sensor0);
+    telemetry->addSensor(bme280Sensor1);
     telemetry->addSensor(dallasSensor);
 
     esp_reset_reason_t resetReason = esp_reset_reason();
@@ -200,11 +203,10 @@ void c2d_info_handler(void) {
     esp_ota_get_app_elf_sha256(buf, sizeof(buf));
     ESP_LOGI(TAG, "ELF file SHA256:  %s...", buf);
     ESP_LOGI(TAG, "ESP-IDF:          %s", app_desc->idf_ver);
+    ESP_LOGI(TAG, "DEVICE_ID:        %s", iotDeviceId);
 }
 
-
 void runInSleepMode();
-
 
 static unsigned hwm = 0;
 void runInConnectedMode() {
@@ -240,6 +242,8 @@ void app_main()
 
     esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
     esp_task_wdt_add(NULL);    
+
+    i2cdev_init();
 
     Props::init();
     Props::load(props);
