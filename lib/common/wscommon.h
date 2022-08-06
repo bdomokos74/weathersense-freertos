@@ -8,11 +8,12 @@
 #define mS_TO_S_FACTOR 1000
 
 // TODO initialize properly
-#define SDA_GPIO 23
+#define SDA_GPIO 21
 #define SCL_GPIO 22
 #define WIFI_FAIL_SLEEP_TIME_SEC 60*30
 
-#define ONE_W_PIN 21
+#define ONE_W_PIN 19
+// 21
 
 void hexDump (
     const char * desc,

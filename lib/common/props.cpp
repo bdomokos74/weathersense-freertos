@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "esp_log.h"
+#include "esp_ota_ops.h"
 
 SemaphoreHandle_t Props::lock;
 
@@ -17,8 +18,8 @@ extern int prop_sleepTimeSec;
 extern int prop_measureIntervalMs;
 extern int prop_mesaureBatchSize;
 extern int prop_ledPin;
-extern char *prop_firmwareVersion;
-extern char *prop_gitRevision;
+//extern char *prop_firmwareVersion;
+//extern char *prop_gitRevision;
 
 void Props::init() {
     BaseType_t rc;
@@ -28,7 +29,7 @@ void Props::init() {
 
 Props::Props() {
     this->firmwareVersion = nullptr;
-    this->gitRevision = nullptr;
+    this->gitRevision = GIT_REV;
     this->doSleep = -1;
     this->sleepTimeSec = -1;
     this->measureIntervalMs = -1;
@@ -45,7 +46,7 @@ Props::Props(
     int ledPin
 ) {
     this->firmwareVersion = firmwareVersion;
-    this->gitRevision = nullptr;
+    this->gitRevision = GIT_REV;
     this->doSleep = doSleep;
     this->sleepTimeSec = sleepTimeSec;
     this->measureIntervalMs = measureIntervalMs;
@@ -60,8 +61,9 @@ void Props::load(Props &props) {
     props.measureIntervalMs = prop_measureIntervalMs;
     props.measureBatchSize = prop_mesaureBatchSize;
     props.ledPin = prop_ledPin;
-    props.firmwareVersion = prop_firmwareVersion;
-    props.gitRevision = prop_gitRevision;
+    const esp_app_desc_t *app_desc = esp_ota_get_app_description();
+    props.firmwareVersion = (char*)app_desc->version;
+    props.gitRevision = GIT_REV;
     xSemaphoreGive(Props::lock);
 }
 
