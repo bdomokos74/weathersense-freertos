@@ -13,39 +13,19 @@ static int sensor_count = 0;
 
 Telemetry::Telemetry(
     char *dataBuf,
+    int bufSize,
     int *bytesStored,
     int *numStored,
     int *tmId) {
         this->dataBuf = dataBuf;
+        this->bufSize = bufSize;
         this->bytesStored = bytesStored;
         this->numStored = numStored;
         this->telemetryId = tmId;
+        this->numSensors = 0;
 }
 
-
-void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, float temperature, float temperature2, float pressure, float humidity)
-{
-    buildTelemetryPayload(payload, out_payload,
-    true, temperature, 
-    true, temperature2,
-    true, pressure,
-    true, humidity);
-}
-
-void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, float temperature, float pressure, float humidity)
-{
-    buildTelemetryPayload(payload, out_payload,
-    true, temperature, 
-    false, 0,
-    true, pressure,
-    true, humidity);
-}
-
-void Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload, 
-bool showt1, float temperature, 
-bool showt2, float temperature2, 
-bool showp, float pressure, 
-bool showh, float humidity)
+bool Telemetry::buildTelemetryPayload(az_span payload, az_span* out_payload)
 {
   az_span tempSpan;
   az_span tempSpan2;
@@ -63,38 +43,46 @@ bool showh, float humidity)
   payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"ts\":"));
   time_t now = time(NULL);
   (void)az_span_u64toa(payload, now, &payload);
-  
-  if(showt1) {
-    payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"t1\":"));
-    sprintf(tempBuf, "%.2f", temperature);
-    tempSpan = az_span_create_from_str(tempBuf);
-    payload = az_span_copy(payload, tempSpan);
+
+  int tIdx = 1;
+  bool found = false;
+  for(int i = 0; i < this->numSensors; i++) {
+    BaseSensor *s = this->sensors[i];
+    float f1; bool b1;
+    float f2; bool b2;
+    float f3; bool b3;
+    s->readMeasurement(f1, b1, f2, b2, f3, b3);
+    if(b1) {
+        payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"t"));
+        az_span_i32toa(payload, tIdx++, &payload);
+        payload = az_span_copy(payload, AZ_SPAN_FROM_STR("\":"));
+        sprintf(tempBuf, "%.2f", f1);
+        tempSpan = az_span_create_from_str(tempBuf);
+        payload = az_span_copy(payload, tempSpan);
+        found = true;
+    }
+
+    if(b2) {
+        payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"p\":"));
+        sprintf(tempBuf, "%.2f", f2);
+        tempSpan2 = az_span_create_from_str(tempBuf);
+        payload = az_span_copy(payload, tempSpan2);
+        found = true;
+    }
+    if(b3) {
+        payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"h\":"));
+        sprintf(tempBuf, "%.2f", f3);
+        tempSpan2 = az_span_create_from_str(tempBuf);
+        payload = az_span_copy(payload, tempSpan2);
+        found = true;
+    }
   }
 
-  if(showt2) {
-    payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"t2\":"));
-    sprintf(tempBuf, "%.2f", temperature2);
-    tempSpan2 = az_span_create_from_str(tempBuf);
-    payload = az_span_copy(payload, tempSpan2);
-  }
-
-  if(showp) {
-    payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"p\":"));
-    sprintf(tempBuf, "%.2f", pressure);
-    pSpan = az_span_create_from_str(tempBuf);
-    payload = az_span_copy(payload, pSpan);
-  }
-
-  if(showh) {
-    payload = az_span_copy(payload, AZ_SPAN_FROM_STR(",\"h\":"));
-    sprintf(tempBuf, "%.2f", humidity);
-    hSpan = az_span_create_from_str(tempBuf);
-    payload = az_span_copy(payload, hSpan);
-  }
   payload = az_span_copy(payload, AZ_SPAN_FROM_STR("}"));
   payload = az_span_copy_u8(payload, '\0');
   
   *out_payload = az_span_slice(original_payload, 0, az_span_size(original_payload) - az_span_size(payload) - 1);
+  return found;
 }
 
 char *Telemetry::getDataBuf() {
@@ -107,7 +95,7 @@ int Telemetry::getNumStored() {
 }
 
 int Telemetry::getRemainingSize() {
-    return RTC_BUF_SIZE-(*this->bytesStored);
+    return this->bufSize-(*this->bytesStored);
 }
 
 int Telemetry::getStoredSize() {
@@ -137,4 +125,8 @@ void Telemetry::buildStatus(char *buf, int len) {
 void Telemetry::reset() {
     *(this->numStored) = 0;
     *(this->bytesStored) = 0;
+}
+
+void Telemetry::addSensor(BaseSensor *s) {
+    this->sensors[this->numSensors++] = s;
 }

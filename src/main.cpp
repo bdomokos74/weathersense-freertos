@@ -44,8 +44,9 @@ char *mqtt_broker_uri = "mqtts://" IOT_CONFIG_IOTHUB_FQDN;
 char *iotDeviceId = IOT_CONFIG_DEVICE_ID;
 char *iotDeviceKey = IOT_CONFIG_DEVICE_KEY;
 
-#define RTC_BUF_SIZE 3072
+
 extern char dataBuf[];
+extern int rtcBufSize;
 extern int bytesStored;
 extern int numStored;
 extern int telemetryId;
@@ -81,6 +82,7 @@ static void telemetryTask(void *arg)
     ESP_LOGI(telemetryTaskName, "started, dataBuf=%p, bytesStored=%d, numStored=%d, telemetryId=%d", dataBuf, bytesStored, numStored, telemetryId);
     Telemetry *telemetry = new Telemetry(
         (char*)dataBuf,
+        rtcBufSize,
         &bytesStored,
         &numStored,
         &telemetryId
@@ -89,13 +91,9 @@ static void telemetryTask(void *arg)
     
     bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
     dallasSensor = new DallasSensor(ONE_W_PIN);
-    float temperature;
-    float temperature2;
-    float pressure;
-    float humidity;
-    float p2;
-    float h2;
-    bool showt1 = false,showt2 = false, showp = false, showh = false;
+    telemetry->addSensor(bme280Sensor);
+    telemetry->addSensor(dallasSensor);
+
     esp_reset_reason_t resetReason = esp_reset_reason();
     ESP_LOGI(telemetryTaskName, "Reset Reason: %d", resetReason);
             
@@ -113,22 +111,8 @@ static void telemetryTask(void *arg)
             requestTwin();
         }
 
-        if(bme280Sensor->readMeasurement(temperature, pressure, humidity)==WSOK) 
-        {
-            showt1 = true;
-            showp = true;
-            showh = true;
-        }
-        if(dallasSensor->readMeasurement(temperature2, p2, h2)==WSOK) {
-            showt2 = true;
-        }
-        if(showt1||showt2||showp||showh) {
-            az_span meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
-            telemetry->buildTelemetryPayload(meas, &meas, 
-                showt1, temperature, 
-                showt2, temperature2,
-                showp, pressure, 
-                showh, humidity);
+        az_span meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
+        if(telemetry->buildTelemetryPayload(meas, &meas)) {
 
             if(telemetry->getNumStored()>=props.getMeasureBatchSize()) {
                 if(trySendingTelemetry(telemetry)==WSOK) {
@@ -208,6 +192,7 @@ void c2d_info_handler(void) {
 
     const esp_app_desc_t *app_desc = esp_ota_get_app_description();
     ESP_LOGI(TAG, "Application information:");
+    ESP_LOGI(TAG, "GIT revision:     %s", props.getGitRevision());
     ESP_LOGI(TAG, "Project name:     %s", app_desc->project_name);
     ESP_LOGI(TAG, "App version:      %s", app_desc->version);
     ESP_LOGI(TAG, "Compile time:     %s %s", app_desc->date, app_desc->time);

@@ -8,12 +8,13 @@
 #define mS_TO_S_FACTOR 1000
 
 // TODO initialize properly
-#define SDA_GPIO 21
-#define SCL_GPIO 22
+// #define SDA_GPIO 21
+// #define SCL_GPIO 22
+//#define ONE_W_PIN 19
+// 21 for esp32feather
+
 #define WIFI_FAIL_SLEEP_TIME_SEC 60*30
 
-#define ONE_W_PIN 19
-// 21
 
 #define WDT_TIMEOUT_SEC 60*60
 

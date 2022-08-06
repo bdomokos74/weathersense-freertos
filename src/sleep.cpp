@@ -11,6 +11,7 @@
 #include "app_wifi.h"
 #include "telemetry.h"
 #include "bme280sensor.h"
+#include "dallas_sensor.h"
 #include "wscommon.h"
 
 #include "props.h"
@@ -22,6 +23,7 @@ extern TSafeVars mainTSafeVars;
 #define TAG "SLPMODE"
 
 static BME280Sensor *bme280Sensor;
+static DallasSensor *dallasSensor;
 
 int trySendingTelemetry(Telemetry *telemetry);
 
@@ -30,6 +32,7 @@ static char telemetrySleepTaskName[] = "TMSTASK";
 static Props props;
 
 extern char dataBuf[];
+extern int rtcBufSize;
 extern int bytesStored;
 extern int numStored;
 extern int telemetryId;
@@ -39,6 +42,7 @@ static void telemetryTaskSleepmode(void *arg)
 {
     Telemetry *telemetry = new Telemetry(
         (char*)dataBuf,
+        rtcBufSize,
         &bytesStored,
         &numStored,
         &telemetryId
@@ -131,24 +135,28 @@ az_span sleepModeMeas;
 void runInSleepMode() {
     Telemetry *telemetry = new Telemetry(
         (char*)dataBuf,
+        rtcBufSize,
         &bytesStored,
         &numStored,
         &telemetryId
     );
+    
     Props::load(props);
     props.debug("INITIAL props(sleep)");
 
-    float temperature;
-    float pressure;
-    float humidity;
+
     logTelemetryStatus(telemetry);
     bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
-    if(bme280Sensor->readMeasurement(temperature, pressure, humidity)==WSOK) 
+    dallasSensor = new DallasSensor(ONE_W_PIN);
+    telemetry->addSensor(bme280Sensor);
+    telemetry->addSensor(dallasSensor);
+
+    sleepModeMeas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
+    if(telemetry->buildTelemetryPayload(sleepModeMeas, &sleepModeMeas))
     {
-        sleepModeMeas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
-        telemetry->buildTelemetryPayload(sleepModeMeas, &sleepModeMeas, temperature, pressure, humidity);
         logSpan(TAG, "telemetry1", sleepModeMeas);
         logTelemetryStatus(telemetry);
+        
         if(telemetry->getNumStored()>=props.getMeasureBatchSize() || !telemetry->doesMeasurementFit(sleepModeMeas)) {
             ESP_LOGI(TAG, "connecting to send measurements");
             buildConnectionSleepMode();

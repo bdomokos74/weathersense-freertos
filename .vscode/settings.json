@@ -15,7 +15,9 @@
         "freertos.h": "c",
         "task.h": "c",
         "iot.h": "c",
-        "thread": "cpp"
+        "thread": "cpp",
+        "ds18x20.h": "c",
+        "basesensor.h": "cpp"
     },
     "files.autoSave": "onFocusChange"
 }

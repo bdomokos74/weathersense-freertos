@@ -1,6 +1,9 @@
 #include <unity.h>
 #include <az_core.h>
+
 #include <telemetry.h>
+#include <basesensor.h>
+#include "sensor_stub.h"
 #include "stdio.h"
 
 void hexDump (
@@ -12,7 +15,6 @@ void hexDump (
 
 
 char buf[200];
-char *poi = buf;
 
 void setUp(void) {
     // set stuff up here
@@ -25,14 +27,14 @@ void tearDown(void) {
 }
 
 void test_telemetry_store_measurement(void) {
+    int bytesStored = 0;
     int numStored = 0;
     int telemetryId = 1;
     printf("\n");
     printf("---- buf=0x%x\n", buf);
-    printf("---- poi=0x%x\n", poi);
     
     Telemetry *t = new Telemetry(
-        buf, sizeof(buf), poi, &numStored, &telemetryId
+        buf, sizeof(buf), &bytesStored, &numStored, &telemetryId
     );
 
     memset(buf, 0, sizeof(buf));
@@ -87,44 +89,61 @@ void test_telemetry_store_measurement(void) {
 }
 
 void test_telemetry_build_telemetry(void) {
+    int bytesStored = 0;
     int numStored = 0;
     int telemetryId = 1;
 
     static uint8_t telemetry_payload[100];
     az_span meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
     Telemetry *t = new Telemetry(
-        buf, sizeof(buf), poi, &numStored, &telemetryId
+        buf, sizeof(buf), &bytesStored, &numStored, &telemetryId
     );
-
-    t->buildTelemetryPayload(meas, &meas, 1.0, 2.0, 3.0);
+    
+    SensorStub *s1 = new SensorStub(1.0f, true, 2.0f, true, 3.0f, true);
+    t->addSensor(s1);
+    
+    t->buildTelemetryPayload(meas, &meas);
     t->storeMeasurement(meas);
 
     // TODO: mock time
     TEST_ASSERT_EQUAL_STRING_LEN("{\"id\":1,", az_span_ptr(meas), 8);
     TEST_ASSERT_EQUAL_STRING_LEN(",\"t1\":1.00,\"p\":2.00,\"h\":3.00}", az_span_ptr(meas)+23, az_span_size(meas)-23);
+    printf("meas: %s\n", az_span_ptr(meas));
 
     char statusBuf[100];
     t->buildStatus(statusBuf, sizeof(statusBuf));
     TEST_ASSERT_EQUAL_STRING("MEAS_STORE: numStored=1, storedBytes=53, remainingBytes=147", statusBuf);
 
     meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
-    t->buildTelemetryPayload(meas, &meas, 4.0, 5.0, 6.0);
+    t->buildTelemetryPayload(meas, &meas);
     t->storeMeasurement(meas);
 
     TEST_ASSERT_EQUAL_STRING_LEN("{\"id\":2,", az_span_ptr(meas), 8);
-    TEST_ASSERT_EQUAL_STRING_LEN(",\"t1\":4.00,\"p\":5.00,\"h\":6.00}", az_span_ptr(meas)+23, az_span_size(meas)-23);
+    TEST_ASSERT_EQUAL_STRING_LEN(",\"t1\":1.00,\"p\":2.00,\"h\":3.00}", az_span_ptr(meas)+23, az_span_size(meas)-23);
 
     t->buildStatus(statusBuf, sizeof(statusBuf));
     TEST_ASSERT_EQUAL_STRING("MEAS_STORE: numStored=2, storedBytes=106, remainingBytes=94", statusBuf);
+
+    SensorStub *s2 = new SensorStub(4.0f, true, 2.0f, false, 3.0f, false);
+    t->addSensor(s2);
+
+    meas = AZ_SPAN_FROM_BUFFER(telemetry_payload);
+    t->buildTelemetryPayload(meas, &meas);
+    t->storeMeasurement(meas);
+
+    TEST_ASSERT_EQUAL_STRING_LEN("{\"id\":3,", az_span_ptr(meas), 8);
+    TEST_ASSERT_EQUAL_STRING_LEN(",\"t1\":1.00,\"p\":2.00,\"h\":3.00,\"t2\":4.00}", az_span_ptr(meas)+23, az_span_size(meas)-23);
 }
 
 
 int main( int argc, char **argv) {
-    printf("starting");
+    printf("starting\n");
     UNITY_BEGIN();
     RUN_TEST(test_telemetry_store_measurement);
+    printf("starting2\n");
     RUN_TEST(test_telemetry_build_telemetry);
     UNITY_END();
+    printf("done");
     return 0;
 }
 

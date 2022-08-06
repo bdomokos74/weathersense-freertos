@@ -16,4 +16,5 @@ int prop_mesaureBatchSize = 5;
 int prop_ledPin = 0;
 //char *prop_firmwareVersion = WS_VERSION;
 //char *prop_gitRevision = GIT_REV;
+int rtcBufSize = RTC_BUF_SIZE;
 char dataBuf[RTC_BUF_SIZE];

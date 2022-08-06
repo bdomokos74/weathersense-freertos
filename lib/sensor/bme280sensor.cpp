@@ -26,7 +26,7 @@ BME280Sensor::BME280Sensor(int sda, int scl) {
     ESP_LOGI(TAG, "init done");
 }
 
-int BME280Sensor::readMeasurement(float &temperature, float &pressure, float &humidity) {
+int BME280Sensor::readMeasurement(float &temperature, bool &tf, float &pressure, bool &pf,  float &humidity, bool &hf ) {
     float temp, pres, hum;
     vTaskDelay(500 / portTICK_PERIOD_MS);
     if (bmp280_read_float(&this->temp_sensor, &temp, &pres, &hum) == ESP_OK)
@@ -39,6 +39,8 @@ int BME280Sensor::readMeasurement(float &temperature, float &pressure, float &hu
     temperature = temp;
     pressure = pres;
     humidity = hum;
+    tf = true;
+    pf = true;
+    hf = true;
     return WSOK;
 }
-
