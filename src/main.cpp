@@ -22,6 +22,8 @@
 #include "wake.h"
 
 #include "wsota.h"
+#include "esp_ota_ops.h"
+#include "esp_system.h"
 
 extern "C" void app_main(void);
 
@@ -36,8 +38,6 @@ extern "C" void app_main(void);
 //static bmp280_t temp_sensor;
 static int sensor_count = 0;
 //static float temps[MAX_SENSORS];
-
-#define WDT_TIMEOUT_SEC 60*60
 
 char *iothubHost = IOT_CONFIG_IOTHUB_FQDN;
 char *mqtt_broker_uri = "mqtts://" IOT_CONFIG_IOTHUB_FQDN;
@@ -87,9 +87,6 @@ static void telemetryTask(void *arg)
     );
     ESP_LOGI(TAG, "INITIAL telemetry store:");
     
-
-    esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
-    esp_task_wdt_add(NULL);    
     bme280Sensor = new BME280Sensor(SDA_GPIO, SCL_GPIO);
     dallasSensor = new DallasSensor(ONE_W_PIN);
     float temperature;
@@ -99,11 +96,22 @@ static void telemetryTask(void *arg)
     float p2;
     float h2;
     bool showt1 = false,showt2 = false, showp = false, showh = false;
+    esp_reset_reason_t resetReason = esp_reset_reason();
+    ESP_LOGI(telemetryTaskName, "Reset Reason: %d", resetReason);
+            
+    bool twinGetDone = false;
     while (1)
     {
         ESP_LOGI(telemetryTaskName, "loop");
         Props::load(props);
 
+        if(!twinGetDone &&resetReason!= ESP_RST_TASK_WDT && mainTSafeVars.getAndClearTwinGetSubscribed()) {
+            twinGetDone = true;
+            ESP_LOGI(telemetryTaskName, "Sending twin reported");
+            sendTwinProp();
+            ESP_LOGI(telemetryTaskName, "Requesting twin desired");
+            requestTwin();
+        }
 
         if(bme280Sensor->readMeasurement(temperature, pressure, humidity)==WSOK) 
         {
@@ -133,7 +141,9 @@ static void telemetryTask(void *arg)
                 telemetry->storeMeasurement(meas);
                 ESP_LOGI(telemetryTaskName, "done stoing measurement");
             } else {
-                trySendingTelemetry(telemetry);
+                if(trySendingTelemetry(telemetry)==WSOK) {
+                    esp_task_wdt_reset();
+                };
                 if(telemetry->doesMeasurementFit(meas)) {
                     telemetry->storeMeasurement(meas);
                 } else {
@@ -195,6 +205,16 @@ void c2d_info_handler(void) {
     //logTelemetryStatus(telemetry);
     esp_read_mac(macBuf, ESP_MAC_WIFI_STA);
     hexDump("MAC", macBuf, sizeof(macBuf), 16);
+
+    const esp_app_desc_t *app_desc = esp_ota_get_app_description();
+    ESP_LOGI(TAG, "Application information:");
+    ESP_LOGI(TAG, "Project name:     %s", app_desc->project_name);
+    ESP_LOGI(TAG, "App version:      %s", app_desc->version);
+    ESP_LOGI(TAG, "Compile time:     %s %s", app_desc->date, app_desc->time);
+    char buf[17];
+    esp_ota_get_app_elf_sha256(buf, sizeof(buf));
+    ESP_LOGI(TAG, "ELF file SHA256:  %s...", buf);
+    ESP_LOGI(TAG, "ESP-IDF:          %s", app_desc->idf_ver);
 }
 
 
@@ -233,6 +253,8 @@ void app_main()
     ESP_LOGI(TAG, "app_main called");
     logWakeReason();
 
+    esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
+    esp_task_wdt_add(NULL);    
 
     Props::init();
     Props::load(props);

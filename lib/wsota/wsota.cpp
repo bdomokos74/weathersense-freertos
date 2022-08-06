@@ -18,8 +18,12 @@
 #include "esp_https_ota.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "sntp.h"
 
 #include "esp_wifi.h"
+
+#include <mqtt_client.h>
+extern esp_mqtt_client_handle_t mqtt_client;
 
 #define CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL "https://weathersenselake.blob.core.windows.net/firmware/test"
 #define CONFIG_EXAMPLE_OTA_RECV_TIMEOUT 3000
@@ -73,11 +77,13 @@ void ota_task(void *pvParameter)
     };
     config.skip_cert_common_name_check = true;
 
+
     esp_https_ota_config_t ota_config = {
         .http_config = &config,
-        .http_client_init_cb = _http_client_init_cb, // Register a callback to be invoked after esp_http_client is initialized
-        .partial_http_download = true,
-        .max_http_request_size = CONFIG_EXAMPLE_HTTP_REQUEST_SIZE,
+        .http_client_init_cb = _http_client_init_cb
+        // Register a callback to be invoked after esp_http_client is initialized
+        //.partial_http_download = true,
+        //.max_http_request_size = CONFIG_EXAMPLE_HTTP_REQUEST_SIZE,
     };
 
     esp_https_ota_handle_t https_ota_handle = NULL;
@@ -117,7 +123,18 @@ void ota_task(void *pvParameter)
         ota_finish_err = esp_https_ota_finish(https_ota_handle);
         if ((err == ESP_OK) && (ota_finish_err == ESP_OK)) {
             ESP_LOGI(TAG, "ESP_HTTPS_OTA upgrade successful. Rebooting ...");
+            if(mqtt_client!=NULL) {
+                esp_mqtt_client_disconnect(mqtt_client);
+            }
+            ESP_LOGI(TAG, "MQTT disconnected ...");
+            if (sntp_enabled()) {
+                sntp_stop();
+            }
             vTaskDelay(1000 / portTICK_PERIOD_MS);
+            esp_wifi_disconnect();
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            esp_wifi_stop();
+            ESP_LOGI(TAG, "Rebooting ...");
             esp_restart();
         } else {
             if (ota_finish_err == ESP_ERR_OTA_VALIDATE_FAILED) {

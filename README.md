@@ -176,3 +176,13 @@ https://github.com/espressif/esp-idf/tree/36f49f361c001b49c538364056bc5d2d04c6f3
 
 
 openssl s_client -showcerts -servername weathersenselake.blob.core.windows.net -connect weathersenselake.blob.core.windows.net:443 </dev/null
+
+openssl req -x509 -newkey rsa:2048 -keyout ca_key.pem -out ca_cert.pem -days 365 -nodes
+
+To change firmwareVersion update version.txt.
+
+To trigger OTA update, set device twin's desired properties fwVersion to the new firmware version.
+
+### Notes
+
+- do not request twin update after wdt reset - stay in connected mode instead of possibly sleep mode

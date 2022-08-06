@@ -6,6 +6,25 @@ TSafeVars::TSafeVars() {
     rc = xSemaphoreGive(this->lock);
 }
 
+bool TSafeVars::getAndClearTwinGetSubscribed() {
+    BaseType_t rc;
+    bool result;
+    rc = xSemaphoreTake(this->lock, portMAX_DELAY);
+    result = this->twinGetSubscribed;
+    if(result==true) {
+        this->twinGetSubscribed = false;
+    }
+    rc = xSemaphoreGive(this->lock);
+    return result;
+}
+
+void TSafeVars::setTwinGetSubscribed() {
+    BaseType_t rc;
+    rc = xSemaphoreTake(this->lock, portMAX_DELAY);
+    this->twinGetSubscribed = true;
+    rc = xSemaphoreGive(this->lock);
+}
+
 bool TSafeVars::getAndClearMqttRestartReqested() {
     BaseType_t rc;
     bool result;

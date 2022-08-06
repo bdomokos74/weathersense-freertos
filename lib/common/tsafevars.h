@@ -9,6 +9,7 @@ class TSafeVars
 private:
     SemaphoreHandle_t lock;
     bool mqttRestart;
+    bool twinGetSubscribed;
     bool twinGetSuccess;
     bool twinPatchSuccess;
     bool disconnected;
@@ -18,6 +19,9 @@ public:
     bool getAndClearMqttRestartReqested();
     void reqestMqttRestart();
     
+    bool getAndClearTwinGetSubscribed();
+    void setTwinGetSubscribed();
+
     bool getAndClearTwinGetSuccess();
     void setTwinGetSuccess();
 

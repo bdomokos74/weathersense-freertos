@@ -135,6 +135,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
         twingetSubsOk = true;
       } else if(event->msg_id==twinPropSubsId) {
         twinPropSubsOk = true;
+        mainTSafeVars.setTwinGetSubscribed();
       }
       break;
     case MQTT_EVENT_UNSUBSCRIBED:
