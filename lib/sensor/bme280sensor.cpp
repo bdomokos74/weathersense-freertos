@@ -11,6 +11,10 @@
 
 BME280Sensor::BME280Sensor(int sda, int scl, uint8_t addr) {
     ESP_LOGI(TAG, "init");
+    if(sda==0 || scl==0) {
+        this->found = false;
+        ESP_LOGI(TAG, "skipping I2C");
+    }
     vTaskDelay(500 / portTICK_PERIOD_MS);
     
     memset(&this->temp_sensor, 0, sizeof(bmp280_t));

@@ -17,6 +17,7 @@
 
 bool handleTwinResp(esp_mqtt_event_handle_t event) ;
 bool handleC2d(esp_mqtt_event_handle_t event);
+bool handleCM(esp_mqtt_event_handle_t event);
 
 #define sizeofarray(a) (sizeof(a) / sizeof(a[0]))
 
@@ -61,10 +62,11 @@ static AzIoTSasToken sasToken(
 int cldMsgSubsId;
 int twingetSubsId;
 int twinPropSubsId;
-
+int clientMethodSubsId;
 int cldMsgSubOk = false;
 int twingetSubsOk = false;
 int twinPropSubsOk = false;
+int clientMethodSubsOk = false;
 static char spbuf[1500];
 esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 {
@@ -120,6 +122,17 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
         twinPropSubsId = r;
       }
 
+      r = esp_mqtt_client_subscribe(mqtt_client, AZ_IOT_HUB_CLIENT_METHODS_SUBSCRIBE_TOPIC, 1);
+      if (r == -1)
+      {
+        ESP_LOGI(TAG, "Could not subscribe for client-methods messages.");
+        clientMethodSubsId = r;
+      }
+      else
+      {
+        ESP_LOGI(TAG, "Subscribed for client-methods messages; message id: %d", r);
+      }
+
       connected = true;
       break;
     case MQTT_EVENT_DISCONNECTED:
@@ -136,6 +149,8 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
       } else if(event->msg_id==twinPropSubsId) {
         twinPropSubsOk = true;
         mainTSafeVars.setTwinGetSubscribed();
+      } else if(event->msg_id==clientMethodSubsId) {
+        clientMethodSubsOk = true;
       }
       break;
     case MQTT_EVENT_UNSUBSCRIBED:
@@ -152,6 +167,8 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
         ESP_LOGI(TAG, "twin handled");
       } else if(handleC2d(event) ) {
         ESP_LOGI(TAG, "c2d handled");
+      } else if(handleCM(event) ) {
+        ESP_LOGI(TAG, "client message handled");
       } else {
         ESP_LOGI(TAG, "msg not handled");
       }

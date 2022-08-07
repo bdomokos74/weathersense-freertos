@@ -188,9 +188,8 @@ To trigger OTA update, set device twin's desired properties fwVersion to the new
 - do not request twin update after wdt reset - stay in connected mode instead of possibly sleep mode
 
 
+- Do not use pin 15 on ESP32 CAM, otherwise the wifi won't connect
 https://dr-mntn.net/2021/02/using-the-sd-card-in-1-bit-mode-on-the-esp32-cam-from-ai-thinker
-aa00000d97641928
-a200000d98380528
 
 
 https://electronics.stackexchange.com/questions/94204/ds1822-1-wire-sensor-parasitic-power-and-strong-pull-up-circuit
@@ -200,11 +199,3 @@ https://electronics.stackexchange.com/questions/94204/ds1822-1-wire-sensor-paras
 
 - DS12B20 recognized, but always reads 85C when used in parasite mode
 Solution: Plug to VIN of ESP32 Devkit 1, so tahat it gets 5V instead of 3.3V.
-
-
-
-### TODO
-
-- make 1-wire pin, I2C SDA, SCL pins configurable
-- add C2D method support
-- add camera support + upload image on method request

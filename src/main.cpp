@@ -206,6 +206,9 @@ void c2d_info_handler(void) {
     ESP_LOGI(TAG, "DEVICE_ID:        %s", iotDeviceId);
 }
 
+void cm_info_handler(void) {
+}
+
 void runInSleepMode();
 
 static unsigned hwm = 0;
