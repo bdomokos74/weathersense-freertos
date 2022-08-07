@@ -24,6 +24,7 @@ DallasSensor::DallasSensor(int tmpPin) {
     bool found = false;
     while(!found && cnt < 5) {
         int numFound = ds18x20_scan_devices(this->pin, &tmpAddr, 1);
+        ESP_LOGI(TAG, "found: %llx", tmpAddr);
         found = (numFound>0);
         cnt++;
         vTaskDelay(1000/portTICK_PERIOD_MS);
@@ -47,20 +48,17 @@ int DallasSensor::readMeasurement(float &temperature, bool &tf, float &pressure,
         return WSNOK;
     }
     float temp;
-    vTaskDelay(100 / portTICK_PERIOD_MS);
 
-    //if(ds18x20_measure(this->pin, ds18x20_ANY, true)!= ESP_OK) {
-    //    ESP_LOGI(TAG, "measure failed");
-    //}
-    //if(ds18x20_read_temperature(this->pin, ds18x20_ANY, &temp)== ESP_OK) {
     if(ds18x20_measure_and_read(this->pin, this->addr, &temp)== ESP_OK) {
         temperature = temp;
         tf = true;
         pf = false;
         hf = false;
+        ESP_LOGI(TAG, "read successful, %llx, %.02f", this->addr, temp);
         return WSOK;
+    } else {
+        ESP_LOGI(TAG, "read failed");
+        return WSNOK;
     }
-    ESP_LOGI(TAG, "read failed");
-    return WSNOK;
 }
 
