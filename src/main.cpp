@@ -108,8 +108,6 @@ static void telemetryTask(void *arg)
 
         if(!twinGetDone &&resetReason!= ESP_RST_TASK_WDT && mainTSafeVars.getAndClearTwinGetSubscribed()) {
             twinGetDone = true;
-            ESP_LOGI(telemetryTaskName, "Sending twin reported");
-            sendTwinProp();
             ESP_LOGI(telemetryTaskName, "Requesting twin desired");
             requestTwin();
         }

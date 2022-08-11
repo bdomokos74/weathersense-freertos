@@ -199,3 +199,6 @@ https://electronics.stackexchange.com/questions/94204/ds1822-1-wire-sensor-paras
 
 - DS12B20 recognized, but always reads 85C when used in parasite mode
 Solution: Plug to VIN of ESP32 Devkit 1, so tahat it gets 5V instead of 3.3V.
+
+2600000d983fc828
+a200000d98380528
